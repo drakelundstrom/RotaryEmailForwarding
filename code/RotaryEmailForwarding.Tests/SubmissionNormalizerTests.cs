@@ -1,4 +1,5 @@
 using RotaryEmailForwarding.FunctionApp.Models;
+using RotaryEmailForwarding.FunctionApp.Domain;
 using RotaryEmailForwarding.FunctionApp.Services;
 using Xunit;
 
@@ -15,7 +16,7 @@ public sealed class SubmissionNormalizerTests
 
         Assert.Equal("InterestFormSubmission", normalized.Type);
         Assert.Equal(receivedOnUtc, normalized.ReceivedOnUtc);
-        Assert.Equal("Pending", normalized.EmailDeliveryStatus);
+        Assert.Equal(EmailDeliveryStatus.Pending, normalized.EmailDeliveryStatus);
         Assert.Null(normalized.SentOnUtc);
         Assert.Empty(normalized.Errors);
     }

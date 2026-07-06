@@ -137,11 +137,10 @@ jobs:
           echo "function_name=$function_name" >> "$GITHUB_OUTPUT"
 
       - name: Deploy same Function app package
-        run: |
-          az functionapp deployment source config-zip \
-            --resource-group "${AZURE_RESOURCE_GROUP}" \
-            --name "${{ steps.infra.outputs.function_name }}" \
-            --src publish/functionapp.zip
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ steps.infra.outputs.function_name }}
+          package: publish/functionapp.zip
 
       - name: Smoke test
         run: curl --fail --show-error --silent "https://${{ steps.infra.outputs.function_name }}.azurewebsites.net/api/health"
@@ -198,11 +197,10 @@ jobs:
           echo "function_name=$function_name" >> "$GITHUB_OUTPUT"
 
       - name: Deploy same Function app package
-        run: |
-          az functionapp deployment source config-zip \
-            --resource-group "${AZURE_RESOURCE_GROUP}" \
-            --name "${{ steps.infra.outputs.function_name }}" \
-            --src publish/functionapp.zip
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ steps.infra.outputs.function_name }}
+          package: publish/functionapp.zip
 
       - name: Post-deploy smoke test
         run: curl --fail --show-error --silent "https://${{ steps.infra.outputs.function_name }}.azurewebsites.net/api/health"
