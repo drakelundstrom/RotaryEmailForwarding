@@ -33,7 +33,7 @@ param keyVaultName string
 @description('Cosmos DB account name.')
 param cosmosAccountName string
 
-@description('Resource group that contains the existing Cosmos DB account managed outside this deployment.')
+@description('Resource group that contains the shared Cosmos DB account.')
 param cosmosAccountResourceGroupName string
 
 @description('Cosmos DB SQL database name.')
@@ -51,8 +51,17 @@ param mailPort string = '587'
 @description('Canonical SMTP security mode setting.')
 param mailSecurityMode string = 'StartTls'
 
+@description('Email address used as the sender and default operator recipient.')
+param sendingEmailAddress string = 'DrakeLundstrom95@gmail.com'
+
 @description('Timezone used by the 3:00 AM email retry timer.')
 param emailRetryTimeZone string = 'Eastern Standard Time'
+
+@description('Optional safe recipient for non-production email delivery.')
+param nonProductionSafeRecipient string = ''
+
+@description('Maximum request body size accepted by the public submission endpoint.')
+param maxRequestBodyBytes string = '131072'
 
 @description('Maximum scale-out instance count for the Flex Consumption app.')
 @minValue(40)
@@ -186,6 +195,14 @@ resource databaseConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2023-
   }
 }
 
+resource sendingEmailAddressSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'sendingEmailAddress'
+  properties: {
+    value: sendingEmailAddress
+  }
+}
+
 resource functionPlan 'Microsoft.Web/serverfarms@2024-04-01' = {
   name: functionPlanName
   location: location
@@ -290,7 +307,7 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
         }
         {
           name: 'sendingEmailAddress'
-          value: '@Microsoft.KeyVault(SecretUri=${keyVaultSecretUriPrefix}/sendingEmailAddress)'
+          value: '@Microsoft.KeyVault(SecretUri=${sendingEmailAddressSecret.properties.secretUri})'
         }
         {
           name: 'sendingEmailPassword'
@@ -311,6 +328,22 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
         {
           name: 'emailRetryTimeZone'
           value: emailRetryTimeZone
+        }
+        {
+          name: 'adminApiKey'
+          value: '@Microsoft.KeyVault(SecretUri=${keyVaultSecretUriPrefix}/adminApiKey)'
+        }
+        {
+          name: 'nonProductionSafeRecipient'
+          value: nonProductionSafeRecipient
+        }
+        {
+          name: 'allowUnsafeNonProductionEmail'
+          value: environmentName == 'prod' ? 'false' : 'false'
+        }
+        {
+          name: 'maxRequestBodyBytes'
+          value: maxRequestBodyBytes
         }
       ]
     }

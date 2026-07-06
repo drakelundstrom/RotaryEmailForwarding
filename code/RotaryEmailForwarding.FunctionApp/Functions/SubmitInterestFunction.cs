@@ -3,41 +3,103 @@ using System.Text.Json;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
+using RotaryEmailForwarding.FunctionApp.Configuration;
+using RotaryEmailForwarding.FunctionApp.Domain;
 using RotaryEmailForwarding.FunctionApp.Models;
-using RotaryEmailForwarding.FunctionApp.Services;
+using RotaryEmailForwarding.FunctionApp.Storage;
+using RotaryEmailForwarding.FunctionApp.Workflow;
 
 namespace RotaryEmailForwarding.FunctionApp.Functions;
 
-public sealed class SubmitInterestFunction(ILogger<SubmitInterestFunction> logger)
+public sealed class SubmitInterestFunction(
+    IApplicationRepository repository,
+    SubmissionWorkflow workflow,
+    AppConfiguration configuration,
+    ILogger<SubmitInterestFunction> logger)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     [Function("SubmitInterest")]
     public async Task<HttpResponseData> Run(
-        [HttpTrigger(AuthorizationLevel.Function, "post", Route = "interest-form-submissions")] HttpRequestData request)
+        [HttpTrigger(AuthorizationLevel.Function, "post", Route = "interest-form-entry")] HttpRequestData request,
+        CancellationToken cancellationToken)
     {
+        var correlationId = GetCorrelationId(request);
+        var rawBody = await new StreamReader(request.Body).ReadToEndAsync(cancellationToken);
+
+        if (rawBody.Length > configuration.MaxRequestBodyBytes)
+        {
+            return await CreateErrorResponse(
+                request,
+                HttpStatusCode.BadRequest,
+                "The request body is too large.",
+                correlationId);
+        }
+
+        try
+        {
+            await repository.StoreRawRequestAsync(
+                new RequestBodyLog
+                {
+                    CorrelationId = correlationId,
+                    RequestBody = rawBody,
+                    ReceivedOnUtc = DateTimeOffset.UtcNow
+                },
+                cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Failed to store raw request log. CorrelationId: {CorrelationId}", correlationId);
+            return await CreateErrorResponse(
+                request,
+                HttpStatusCode.InternalServerError,
+                "The submission could not be stored.",
+                correlationId);
+        }
+
         InterestFormSubmissionRequest? submissionRequest;
 
         try
         {
-            submissionRequest = await JsonSerializer.DeserializeAsync<InterestFormSubmissionRequest>(
-                request.Body,
-                JsonOptions);
+            submissionRequest = JsonSerializer.Deserialize<InterestFormSubmissionRequest>(rawBody, JsonOptions);
         }
         catch (JsonException exception)
         {
-            logger.LogWarning(exception, "Rejected malformed interest form submission payload.");
-            return await CreateErrorResponse(request, HttpStatusCode.BadRequest, "The request body must be valid JSON.");
+            logger.LogWarning(exception, "Rejected malformed interest form submission payload. CorrelationId: {CorrelationId}", correlationId);
+            return await CreateErrorResponse(
+                request,
+                HttpStatusCode.BadRequest,
+                "The request body must be valid JSON.",
+                correlationId);
         }
 
         if (submissionRequest is null)
         {
-            return await CreateErrorResponse(request, HttpStatusCode.BadRequest, "The request body is required.");
+            return await CreateErrorResponse(
+                request,
+                HttpStatusCode.BadRequest,
+                "The request body is required.",
+                correlationId);
         }
 
-        var normalizedSubmission = SubmissionNormalizer.Normalize(submissionRequest, DateTimeOffset.UtcNow);
-        var response = request.CreateResponse(HttpStatusCode.Accepted);
-        await response.WriteAsJsonAsync(normalizedSubmission);
+        var result = await workflow.ProcessAsync(submissionRequest, rawBody, correlationId, cancellationToken);
+        var statusCode = result.Submission.EmailDeliveryStatus switch
+        {
+            EmailDeliveryStatus.Sent => HttpStatusCode.OK,
+            EmailDeliveryStatus.RetryPending => HttpStatusCode.Accepted,
+            _ => HttpStatusCode.InternalServerError
+        };
+
+        var response = request.CreateResponse(statusCode);
+        await response.WriteAsJsonAsync(new
+        {
+            correlationId,
+            result.Submission.Id,
+            result.Submission.ReceivedOnUtc,
+            result.Submission.SentOnUtc,
+            EmailDeliveryStatus = result.Submission.EmailDeliveryStatus.ToString(),
+            result.Submission.Errors
+        }, cancellationToken);
 
         return response;
     }
@@ -45,11 +107,19 @@ public sealed class SubmitInterestFunction(ILogger<SubmitInterestFunction> logge
     private static async Task<HttpResponseData> CreateErrorResponse(
         HttpRequestData request,
         HttpStatusCode statusCode,
-        string message)
+        string message,
+        string correlationId)
     {
         var response = request.CreateResponse(statusCode);
-        await response.WriteAsJsonAsync(new { error = message });
+        await response.WriteAsJsonAsync(new { correlationId, error = message });
 
         return response;
+    }
+
+    private static string GetCorrelationId(HttpRequestData request)
+    {
+        return request.Headers.TryGetValues("x-correlation-id", out var values)
+            ? values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? Guid.NewGuid().ToString("D")
+            : Guid.NewGuid().ToString("D");
     }
 }

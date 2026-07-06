@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="RotaryEmailForwarding.FunctionApp/RotaryEmailForwarding.FunctionApp.csproj" />
+  <Project Path="RotaryEmailForwarding.Tests/RotaryEmailForwarding.Tests.csproj" />
+</Solution>

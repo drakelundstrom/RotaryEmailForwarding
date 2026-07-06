@@ -1,9 +1,14 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using Newtonsoft.Json;
+using RotaryEmailForwarding.FunctionApp.Domain;
 
 namespace RotaryEmailForwarding.FunctionApp.Models;
 
 public sealed record NormalizedInterestFormSubmission
 {
+    [JsonPropertyName("id")]
+    [JsonProperty("id")]
     public required string Id { get; init; }
 
     public string Type { get; init; } = "InterestFormSubmission";
@@ -44,13 +49,19 @@ public sealed record NormalizedInterestFormSubmission
 
     public DateTimeOffset? SentOnUtc { get; init; }
 
-    public string EmailDeliveryStatus { get; init; } = "Pending";
+    public EmailDeliveryStatus EmailDeliveryStatus { get; init; } = EmailDeliveryStatus.Pending;
 
-    public IReadOnlyList<object> EmailDeliveryAttempts { get; init; } = [];
+    public IReadOnlyList<OutboundEmailAttempt> EmailDeliveryAttempts { get; init; } = [];
 
     public DateTimeOffset? NextEmailAttemptOnUtc { get; init; }
 
     public IReadOnlyList<string> Errors { get; init; } = [];
+
+    public string? CorrelationId { get; init; }
+
+    public IReadOnlyList<string> RoutedDistricts { get; init; } = [];
+
+    public string? RoutedCountry { get; init; }
 
     public IReadOnlyDictionary<string, JsonElement> AdditionalFields { get; init; } =
         new Dictionary<string, JsonElement>();
