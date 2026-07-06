@@ -6,9 +6,18 @@
     "appEnvironment": "local",
     "cosmosDatabaseName": "EmailForwarding",
     "cosmosContainerName": "ContactInfoAndRequests",
+    "databaseConnectionString": "",
+    "sendingEmailAddress": "sender@example.test",
+    "operatorEmail": "operator@example.test",
+    "supportEmail": "support@example.test",
+    "sendingEmailPassword": "",
     "mailHost": "localhost",
     "mailPort": "1025",
     "mailSecurityMode": "None",
-    "emailRetryTimeZone": "Eastern Standard Time"
+    "emailRetryTimeZone": "Eastern Standard Time",
+    "adminApiKey": "local-admin-key",
+    "nonProductionSafeRecipient": "local-sink@example.test",
+    "allowUnsafeNonProductionEmail": "false",
+    "maxRequestBodyBytes": "131072"
   }
 }
