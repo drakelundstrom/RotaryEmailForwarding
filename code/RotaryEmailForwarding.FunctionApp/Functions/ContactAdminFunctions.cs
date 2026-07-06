@@ -46,8 +46,7 @@ public sealed class ContactAdminFunctions(
             .Select(contact => contact with
             {
                 Id = string.IsNullOrWhiteSpace(contact.Id) ? Guid.NewGuid().ToString("D") : contact.Id,
-                EffectiveFromUtc = contact.EffectiveFromUtc == default ? clock.UtcNow : contact.EffectiveFromUtc,
-                IsActive = contact.IsActive
+                Country = SubmissionNormalizer.NormalizeCountry(contact.Country) ?? contact.Country
             })
             .ToList();
 
@@ -87,8 +86,7 @@ public sealed class ContactAdminFunctions(
             .Select(contact => contact with
             {
                 Id = string.IsNullOrWhiteSpace(contact.Id) ? Guid.NewGuid().ToString("D") : contact.Id,
-                CountryName = SubmissionNormalizer.NormalizeCountry(contact.CountryName) ?? contact.CountryName,
-                EffectiveFromUtc = contact.EffectiveFromUtc == default ? clock.UtcNow : contact.EffectiveFromUtc
+                Country = SubmissionNormalizer.NormalizeCountry(contact.Country) ?? contact.Country
             })
             .ToList();
 
@@ -130,24 +128,29 @@ public sealed class ContactAdminFunctions(
 
         foreach (var contact in contacts)
         {
-            if (string.IsNullOrWhiteSpace(contact.DistrictName))
+            if (string.IsNullOrWhiteSpace(contact.Country))
             {
-                errors.Add("DistrictName is required.");
+                errors.Add("Country is required.");
+            }
+
+            if (string.IsNullOrWhiteSpace(contact.District))
+            {
+                errors.Add("District is required.");
             }
 
             if (contact.EmailAddresses.Count == 0)
             {
-                errors.Add($"District {contact.DistrictName} must include at least one email address.");
+                errors.Add($"District {contact.District} must include at least one email address.");
             }
 
-            if (contact.Zipcodes.Count == 0)
+            if (contact.ZipCodes.Count == 0)
             {
-                errors.Add($"District {contact.DistrictName} must include at least one zipcode.");
+                errors.Add($"District {contact.District} must include at least one zipcode.");
             }
         }
 
         var duplicates = contacts
-            .GroupBy(contact => contact.DistrictName, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(contact => $"{contact.Country}:{contact.District}", StringComparer.OrdinalIgnoreCase)
             .Where(group => group.Count() > 1)
             .Select(group => group.Key);
         errors.AddRange(duplicates.Select(duplicate => $"Duplicate district entry: {duplicate}."));
@@ -165,19 +168,19 @@ public sealed class ContactAdminFunctions(
 
         foreach (var contact in contacts)
         {
-            if (string.IsNullOrWhiteSpace(contact.CountryName))
+            if (string.IsNullOrWhiteSpace(contact.Country))
             {
-                errors.Add("CountryName is required.");
+                errors.Add("Country is required.");
             }
 
             if (contact.IsCertified && contact.EmailAddresses.Count == 0)
             {
-                errors.Add($"Certified country {contact.CountryName} must include at least one email address.");
+                errors.Add($"Certified country {contact.Country} must include at least one email address.");
             }
         }
 
         var duplicates = contacts
-            .GroupBy(contact => contact.CountryName, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(contact => contact.Country, StringComparer.OrdinalIgnoreCase)
             .Where(group => group.Count() > 1)
             .Select(group => group.Key);
         errors.AddRange(duplicates.Select(duplicate => $"Duplicate country entry: {duplicate}."));

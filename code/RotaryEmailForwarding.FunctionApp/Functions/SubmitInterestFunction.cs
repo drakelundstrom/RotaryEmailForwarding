@@ -5,6 +5,7 @@ using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using RotaryEmailForwarding.FunctionApp.Configuration;
 using RotaryEmailForwarding.FunctionApp.Domain;
+using RotaryEmailForwarding.FunctionApp.Email;
 using RotaryEmailForwarding.FunctionApp.Models;
 using RotaryEmailForwarding.FunctionApp.Storage;
 using RotaryEmailForwarding.FunctionApp.Workflow;
@@ -14,6 +15,8 @@ namespace RotaryEmailForwarding.FunctionApp.Functions;
 public sealed class SubmitInterestFunction(
     IApplicationRepository repository,
     SubmissionWorkflow workflow,
+    EmailTemplateService templateService,
+    IEmailSender emailSender,
     AppConfiguration configuration,
     ILogger<SubmitInterestFunction> logger)
 {
@@ -50,6 +53,11 @@ public sealed class SubmitInterestFunction(
         catch (Exception exception)
         {
             logger.LogError(exception, "Failed to store raw request log. CorrelationId: {CorrelationId}", correlationId);
+            await SendOperatorFailureAsync(
+                correlationId,
+                $"submission unable to be logged to database: {exception.Message}",
+                rawBody,
+                cancellationToken);
             return await CreateErrorResponse(
                 request,
                 HttpStatusCode.InternalServerError,
@@ -66,6 +74,11 @@ public sealed class SubmitInterestFunction(
         catch (JsonException exception)
         {
             logger.LogWarning(exception, "Rejected malformed interest form submission payload. CorrelationId: {CorrelationId}", correlationId);
+            await SendOperatorFailureAsync(
+                correlationId,
+                $"Failure to process submission or send email: {exception.Message}",
+                rawBody,
+                cancellationToken);
             return await CreateErrorResponse(
                 request,
                 HttpStatusCode.BadRequest,
@@ -75,6 +88,11 @@ public sealed class SubmitInterestFunction(
 
         if (submissionRequest is null)
         {
+            await SendOperatorFailureAsync(
+                correlationId,
+                "Failure to process submission or send email: request body deserialized to null.",
+                rawBody,
+                cancellationToken);
             return await CreateErrorResponse(
                 request,
                 HttpStatusCode.BadRequest,
@@ -82,7 +100,26 @@ public sealed class SubmitInterestFunction(
                 correlationId);
         }
 
-        var result = await workflow.ProcessAsync(submissionRequest, rawBody, correlationId, cancellationToken);
+        SubmissionWorkflowResult result;
+        try
+        {
+            result = await workflow.ProcessAsync(submissionRequest, rawBody, correlationId, cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Failed to process interest form submission. CorrelationId: {CorrelationId}", correlationId);
+            await SendOperatorFailureAsync(
+                correlationId,
+                $"Failure to send to database or process submission: {exception.Message}",
+                rawBody,
+                cancellationToken);
+            return await CreateErrorResponse(
+                request,
+                HttpStatusCode.InternalServerError,
+                "The submission could not be processed.",
+                correlationId);
+        }
+
         var statusCode = result.Submission.EmailDeliveryStatus switch
         {
             EmailDeliveryStatus.Sent => HttpStatusCode.OK,
@@ -121,5 +158,34 @@ public sealed class SubmitInterestFunction(
         return request.Headers.TryGetValues("x-correlation-id", out var values)
             ? values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? Guid.NewGuid().ToString("D")
             : Guid.NewGuid().ToString("D");
+    }
+
+    private async Task SendOperatorFailureAsync(
+        string correlationId,
+        string failureSummary,
+        string rawSubmissionJson,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var message = templateService.BuildOperatorFailureMessage(correlationId, failureSummary, rawSubmissionJson);
+            var result = await emailSender.SendAsync(message, cancellationToken);
+            if (result.Status != OutboundEmailAttemptStatus.Succeeded)
+            {
+                logger.LogError(
+                    "Failed to send operator failure email. CorrelationId: {CorrelationId}, ProviderCode: {ProviderCode}, ProviderResponse: {ProviderResponse}",
+                    correlationId,
+                    result.ProviderCode,
+                    result.ProviderResponse);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Failed to send operator failure email. CorrelationId: {CorrelationId}", correlationId);
+        }
     }
 }

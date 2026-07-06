@@ -25,10 +25,10 @@ public sealed class SpecBehaviorTests
             [
                 new ContactsForDistrict
                 {
-                    DistrictName = "District 6630",
+                    Country = "usa",
+                    District = "District 6630",
                     EmailAddresses = ["rep@example.com"],
-                    Zipcodes = ["44102"],
-                    EffectiveFromUtc = Now.AddDays(-1)
+                    ZipCodes = ["44102"]
                 }
             ],
             CancellationToken.None);
@@ -61,10 +61,9 @@ public sealed class SpecBehaviorTests
             [
                 new ContactsForCountry
                 {
-                    CountryName = "france",
+                    Country = "france",
                     EmailAddresses = ["country@example.com"],
-                    IsCertified = true,
-                    EffectiveFromUtc = Now.AddDays(-1)
+                    IsCertified = true
                 }
             ],
             CancellationToken.None);
@@ -98,9 +97,8 @@ public sealed class SpecBehaviorTests
             [
                 new ContactsForCountry
                 {
-                    CountryName = "germany",
-                    IsCertified = false,
-                    EffectiveFromUtc = Now.AddDays(-1)
+                    Country = "germany",
+                    IsCertified = false
                 }
             ],
             CancellationToken.None);
@@ -180,11 +178,18 @@ public sealed class SpecBehaviorTests
     }
 
     [Fact]
-    public async Task Reporting_IncludesSameMonthAndFinalMonth()
+    public async Task Reporting_IncludesSameMonthFinalMonthAndCountryBreakdown()
     {
         var repository = new InMemoryApplicationRepository();
         await repository.InsertSubmissionAsync(
-            SubmissionNormalizer.Normalize(new InterestFormSubmissionRequest(), new DateTimeOffset(2026, 2, 5, 0, 0, 0, TimeSpan.Zero)),
+            SubmissionNormalizer.Normalize(
+                new InterestFormSubmissionRequest { CountryOfResidence = "usa" },
+                new DateTimeOffset(2026, 2, 5, 0, 0, 0, TimeSpan.Zero)),
+            CancellationToken.None);
+        await repository.InsertSubmissionAsync(
+            SubmissionNormalizer.Normalize(
+                new InterestFormSubmissionRequest { CountryOfResidence = "France" },
+                new DateTimeOffset(2026, 2, 6, 0, 0, 0, TimeSpan.Zero)),
             CancellationToken.None);
 
         var buckets = await new ReportingService(repository).GenerateSubmissionsByMonthAsync(
@@ -193,9 +198,70 @@ public sealed class SpecBehaviorTests
             CancellationToken.None);
 
         var bucket = Assert.Single(buckets);
-        Assert.Equal(2026, bucket.Year);
-        Assert.Equal(2, bucket.Month);
-        Assert.Equal(1, bucket.Count);
+        Assert.Equal("February 2026", bucket.Month);
+        Assert.Collection(
+            bucket.CountryResults,
+            result =>
+            {
+                Assert.Equal("USA", result.Name);
+                Assert.Equal(1, result.NumberOfSubmissions);
+            },
+            result =>
+            {
+                Assert.Equal("CANADA", result.Name);
+                Assert.Equal(0, result.NumberOfSubmissions);
+            },
+            result =>
+            {
+                Assert.Equal("MEXICO", result.Name);
+                Assert.Equal(0, result.NumberOfSubmissions);
+            },
+            result =>
+            {
+                Assert.Equal("other country", result.Name);
+                Assert.Equal(1, result.NumberOfSubmissions);
+            });
+    }
+
+    [Fact]
+    public async Task Reporting_DistrictSubmissionsAreFoundByDistrictCountryAndZipcode()
+    {
+        var repository = new InMemoryApplicationRepository();
+        await repository.UpsertDistrictContactsAsync(
+            [
+                new ContactsForDistrict
+                {
+                    Country = "usa",
+                    District = "District 1",
+                    EmailAddresses = ["usa@example.com"],
+                    ZipCodes = ["12345"]
+                },
+                new ContactsForDistrict
+                {
+                    Country = "canada",
+                    District = "District 2",
+                    EmailAddresses = ["canada@example.com"],
+                    ZipCodes = ["123"]
+                }
+            ],
+            CancellationToken.None);
+
+        var usaSubmission = SubmissionNormalizer.Normalize(
+            new InterestFormSubmissionRequest { CountryOfResidence = "United States", Zipcode = "12345-0000" },
+            Now);
+        var canadaSubmission = SubmissionNormalizer.Normalize(
+            new InterestFormSubmissionRequest { CountryOfResidence = "Canada", Zipcode = "123 ABC" },
+            Now);
+        await repository.InsertSubmissionAsync(usaSubmission, CancellationToken.None);
+        await repository.InsertSubmissionAsync(canadaSubmission, CancellationToken.None);
+
+        var submissions = await new ReportingService(repository).GetSubmissionsByDistrictAsync(
+            "District 1",
+            Now.AddYears(-1),
+            CancellationToken.None);
+
+        var submission = Assert.Single(submissions);
+        Assert.Equal(usaSubmission.Id, submission.Id);
     }
 
     [Fact]

@@ -21,12 +21,12 @@ public sealed class ReportingFunctions(
         }
 
         var query = ParseQuery(request.Url.Query);
-        if (!query.TryGetValue("start", out var startValue)
-            || !query.TryGetValue("end", out var endValue)
+        if (!TryGetDateQueryValue(query, "startDate", "start", out var startValue)
+            || !TryGetDateQueryValue(query, "endDate", "end", out var endValue)
             || !DateTimeOffset.TryParse(startValue, out var start)
             || !DateTimeOffset.TryParse(endValue, out var end))
         {
-            return await ErrorAsync(request, HttpStatusCode.BadRequest, "Query parameters start and end are required dates.");
+            return await ErrorAsync(request, HttpStatusCode.BadRequest, "Invalid or missing startDate/endDate query parameters. Format: YYYY-MM-DD");
         }
 
         var buckets = await reportingService.GenerateSubmissionsByMonthAsync(start, end, cancellationToken);
@@ -71,5 +71,15 @@ public sealed class ReportingFunctions(
                 parts => Uri.UnescapeDataString(parts[0]),
                 parts => Uri.UnescapeDataString(parts[1]),
                 StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static bool TryGetDateQueryValue(
+        IReadOnlyDictionary<string, string> query,
+        string primaryName,
+        string compatibilityName,
+        out string value)
+    {
+        return query.TryGetValue(primaryName, out value!)
+            || query.TryGetValue(compatibilityName, out value!);
     }
 }

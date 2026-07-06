@@ -25,7 +25,11 @@ public sealed class SubmissionRoutingService(IApplicationRepository repository, 
 
             var contacts = await repository.GetEffectiveDistrictContactsAsync(clock.UtcNow, cancellationToken);
             var matches = contacts
-                .Where(contact => contact.Zipcodes.Any(zip => string.Equals(
+                .Where(contact => string.Equals(
+                    SubmissionNormalizer.NormalizeCountry(contact.Country),
+                    country,
+                    StringComparison.OrdinalIgnoreCase))
+                .Where(contact => contact.ZipCodes.Any(zip => string.Equals(
                     SubmissionNormalizer.NormalizeZipcode(zip, country),
                     submission.Zipcode,
                     StringComparison.OrdinalIgnoreCase)))
