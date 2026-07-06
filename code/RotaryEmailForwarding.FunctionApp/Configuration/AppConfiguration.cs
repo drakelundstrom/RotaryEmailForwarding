@@ -12,7 +12,11 @@ public sealed record AppConfiguration
 
     public string? DatabaseConnectionString { get; init; }
 
-    public string SendingEmailAddress { get; init; } = "DrakeLundstrom95@gmail.com";
+    public string SendingEmailAddress { get; init; } = string.Empty;
+
+    public string OperatorEmail { get; init; } = string.Empty;
+
+    public string SupportEmail { get; init; } = string.Empty;
 
     public string? SendingEmailPassword { get; init; }
 
@@ -32,19 +36,22 @@ public sealed record AppConfiguration
 
     public int MaxRequestBodyBytes { get; init; } = 128 * 1024;
 
-    public string OperatorEmail => SendingEmailAddress;
-
     public bool IsProduction => string.Equals(AppEnvironment, "prod", StringComparison.OrdinalIgnoreCase);
 
     public static AppConfiguration FromConfiguration(IConfiguration configuration)
     {
+        var sendingEmailAddress = configuration["sendingEmailAddress"] ?? string.Empty;
+        var operatorEmail = configuration["operatorEmail"] ?? sendingEmailAddress;
+
         return new AppConfiguration
         {
             AppEnvironment = configuration["appEnvironment"] ?? "local",
             CosmosDatabaseName = configuration["cosmosDatabaseName"] ?? "EmailForwarding",
             CosmosContainerName = configuration["cosmosContainerName"] ?? "ContactInfoAndRequests",
             DatabaseConnectionString = configuration["databaseConnectionString"],
-            SendingEmailAddress = configuration["sendingEmailAddress"] ?? "DrakeLundstrom95@gmail.com",
+            SendingEmailAddress = sendingEmailAddress,
+            OperatorEmail = operatorEmail,
+            SupportEmail = configuration["supportEmail"] ?? operatorEmail,
             SendingEmailPassword = configuration["sendingEmailPassword"],
             MailHost = configuration["mailHost"] ?? "smtp-mail.outlook.com",
             MailPort = int.TryParse(configuration["mailPort"], out var port) ? port : 587,

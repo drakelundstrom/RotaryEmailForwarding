@@ -17,6 +17,14 @@ public sealed class SmtpEmailSender(AppConfiguration configuration) : IEmailSend
                 "Outbound message has no recipients.");
         }
 
+        if (!EmailAddressUtility.IsUsable(configuration.SendingEmailAddress))
+        {
+            return EmailSendResult.Failed(
+                OutboundEmailAttemptStatus.TerminalFailed,
+                "MissingSendingEmailAddress",
+                "sendingEmailAddress is required.");
+        }
+
         if (!configuration.IsProduction
             && string.IsNullOrWhiteSpace(configuration.NonProductionSafeRecipient)
             && !configuration.AllowUnsafeNonProductionEmail)

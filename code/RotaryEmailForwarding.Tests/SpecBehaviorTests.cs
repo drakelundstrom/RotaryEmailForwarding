@@ -152,6 +152,34 @@ public sealed class SpecBehaviorTests
     }
 
     [Fact]
+    public async Task Delivery_RecordsPartialAttemptsWhenSenderThrows()
+    {
+        var sender = new FakeEmailSender
+        {
+            ThrowOnMessageKey = "two",
+            ExceptionToThrow = new FormatException("Invalid email address.")
+        };
+        var orchestrator = new EmailDeliveryOrchestrator(sender, new FakeClock(Now));
+        var submission = SubmissionNormalizer.Normalize(new InterestFormSubmissionRequest(), Now);
+
+        var delivered = await orchestrator.DeliverAsync(
+            submission,
+            [
+                new OutboundEmailMessage("one", OutboundEmailMessageType.OperatorFallback, ["operator@example.com"], "subject", "body"),
+                new OutboundEmailMessage("two", OutboundEmailMessageType.SubmitterConfirmation, ["bad-address"], "subject", "body")
+            ],
+            CancellationToken.None);
+
+        Assert.Equal(EmailDeliveryStatus.TerminalFailed, delivered.EmailDeliveryStatus);
+        Assert.Null(delivered.SentOnUtc);
+        Assert.Null(delivered.NextEmailAttemptOnUtc);
+        Assert.Equal(2, delivered.EmailDeliveryAttempts.Count);
+        Assert.Equal(OutboundEmailAttemptStatus.Succeeded, delivered.EmailDeliveryAttempts[0].Status);
+        Assert.Equal(OutboundEmailAttemptStatus.TerminalFailed, delivered.EmailDeliveryAttempts[1].Status);
+        Assert.Equal("FormatException", delivered.EmailDeliveryAttempts[1].ProviderCode);
+    }
+
+    [Fact]
     public async Task Reporting_IncludesSameMonthAndFinalMonth()
     {
         var repository = new InMemoryApplicationRepository();
@@ -171,31 +199,36 @@ public sealed class SpecBehaviorTests
     }
 
     [Fact]
-    public void Configuration_DefaultsSenderEmailToRequestedOperatorAddress()
+    public void Configuration_DoesNotDefaultMaintenanceEmails()
     {
         var configuration = new ConfigurationBuilder().Build();
 
         var appConfiguration = AppConfiguration.FromConfiguration(configuration);
 
-        Assert.Equal("DrakeLundstrom95@gmail.com", appConfiguration.SendingEmailAddress);
-        Assert.Equal("DrakeLundstrom95@gmail.com", appConfiguration.OperatorEmail);
+        Assert.Equal(string.Empty, appConfiguration.SendingEmailAddress);
+        Assert.Equal(string.Empty, appConfiguration.OperatorEmail);
+        Assert.Equal(string.Empty, appConfiguration.SupportEmail);
     }
 
     [Fact]
-    public void Configuration_ReadsSenderAndSafeRecipientFromSettings()
+    public void Configuration_ReadsSenderMaintenanceAndSafeRecipientFromSettings()
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["sendingEmailAddress"] = "DrakeLundstrom95@gmail.com",
-                ["nonProductionSafeRecipient"] = "DrakeLundstrom95@gmail.com"
+                ["sendingEmailAddress"] = "sender@example.test",
+                ["operatorEmail"] = "operator@example.test",
+                ["supportEmail"] = "support@example.test",
+                ["nonProductionSafeRecipient"] = "safe@example.test"
             })
             .Build();
 
         var appConfiguration = AppConfiguration.FromConfiguration(configuration);
 
-        Assert.Equal("DrakeLundstrom95@gmail.com", appConfiguration.SendingEmailAddress);
-        Assert.Equal("DrakeLundstrom95@gmail.com", appConfiguration.NonProductionSafeRecipient);
+        Assert.Equal("sender@example.test", appConfiguration.SendingEmailAddress);
+        Assert.Equal("operator@example.test", appConfiguration.OperatorEmail);
+        Assert.Equal("support@example.test", appConfiguration.SupportEmail);
+        Assert.Equal("safe@example.test", appConfiguration.NonProductionSafeRecipient);
     }
 
     [Fact]
@@ -204,7 +237,7 @@ public sealed class SpecBehaviorTests
         var sender = new SmtpEmailSender(new AppConfiguration
         {
             AppEnvironment = "test",
-            SendingEmailAddress = "DrakeLundstrom95@gmail.com",
+            SendingEmailAddress = "sender@example.test",
             SendingEmailPassword = "unused-because-send-is-blocked"
         });
 
@@ -262,9 +295,18 @@ public sealed class SpecBehaviorTests
 
         public EmailSendResult NextResult { get; init; } = EmailSendResult.Success();
 
+        public string? ThrowOnMessageKey { get; init; }
+
+        public Exception ExceptionToThrow { get; init; } = new InvalidOperationException("Send failed.");
+
         public Task<EmailSendResult> SendAsync(OutboundEmailMessage message, CancellationToken cancellationToken)
         {
             SentMessages.Add(message);
+            if (string.Equals(message.MessageKey, ThrowOnMessageKey, StringComparison.Ordinal))
+            {
+                throw ExceptionToThrow;
+            }
+
             return Task.FromResult(NextResult);
         }
     }

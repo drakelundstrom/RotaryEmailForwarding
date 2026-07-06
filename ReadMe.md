@@ -24,6 +24,8 @@ az bicep build-params --file infra/params/parameters.prod.bicepparam
 Runtime settings are resolved from environment variables or Azure App Settings:
 
 - `sendingEmailAddress`
+- `operatorEmail`
+- `supportEmail`
 - `sendingEmailPassword`
 - `databaseConnectionString`
 - `cosmosDatabaseName`
@@ -38,7 +40,18 @@ Runtime settings are resolved from environment variables or Azure App Settings:
 - `allowUnsafeNonProductionEmail`
 - `maxRequestBodyBytes`
 
-Azure environments use Key Vault references for `sendingEmailAddress`, `sendingEmailPassword`, `databaseConnectionString`, and `adminApiKey`.
+Azure environments use Key Vault references for `sendingEmailAddress`, `operatorEmail`, `supportEmail`, `sendingEmailPassword`, `databaseConnectionString`, `adminApiKey`, and the test-only `nonProductionSafeRecipient`.
+
+Create or update these Key Vault secrets after the environment Key Vault exists and before relying on email delivery:
+
+```powershell
+az keyvault secret set --vault-name <vault-name> --name sendingEmailAddress --value <smtp-sender-address>
+az keyvault secret set --vault-name <vault-name> --name operatorEmail --value <maintenance-recipient-address>
+az keyvault secret set --vault-name <vault-name> --name supportEmail --value <public-support-address>
+az keyvault secret set --vault-name <vault-name> --name sendingEmailPassword --value <smtp-password>
+az keyvault secret set --vault-name <vault-name> --name adminApiKey --value <admin-api-key>
+az keyvault secret set --vault-name <test-vault-name> --name nonProductionSafeRecipient --value <test-sink-address>
+```
 
 ## API Surface
 
@@ -58,6 +71,6 @@ Flex Consumption does not support `WEBSITE_TIME_ZONE`, so the retry trigger wake
 
 ## Security and Retention
 
-Production and test use isolated Function Apps, Storage accounts, Key Vaults, and app settings. Both environments are configured to use the shared Cosmos account `studyabroadscholarshipsdb` in resource group `EmailForwardingApi`, with the `EmailForwarding` database and `ContactInfoAndRequests` container. Non-production email is routed to `DrakeLundstrom95@gmail.com` unless unsafe delivery is explicitly enabled.
+Production and test use isolated Function Apps, Storage accounts, Key Vaults, and app settings. Both environments are configured to use the shared Cosmos account `studyabroadscholarshipsdb` in resource group `EmailForwardingApi`, with the `EmailForwarding` database and `ContactInfoAndRequests` container. Non-production email is routed to the `nonProductionSafeRecipient` Key Vault secret unless unsafe delivery is explicitly enabled.
 
 Rotate Key Vault secrets per environment by creating a new secret version and restarting the Function App after validation. PII-bearing submissions and raw request logs should be retained only as long as the operating program requires; align Cosmos retention or scheduled purge jobs with the organization retention policy before production launch.

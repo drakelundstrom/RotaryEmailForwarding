@@ -51,14 +51,8 @@ param mailPort string = '587'
 @description('Canonical SMTP security mode setting.')
 param mailSecurityMode string = 'StartTls'
 
-@description('Email address used as the sender and default operator recipient.')
-param sendingEmailAddress string = 'DrakeLundstrom95@gmail.com'
-
 @description('Timezone used by the 3:00 AM email retry timer.')
 param emailRetryTimeZone string = 'Eastern Standard Time'
-
-@description('Optional safe recipient for non-production email delivery.')
-param nonProductionSafeRecipient string = ''
 
 @description('Maximum request body size accepted by the public submission endpoint.')
 param maxRequestBodyBytes string = '131072'
@@ -194,14 +188,6 @@ resource databaseConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2023-
   }
 }
 
-resource sendingEmailAddressSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
-  parent: keyVault
-  name: 'sendingEmailAddress'
-  properties: {
-    value: sendingEmailAddress
-  }
-}
-
 resource functionPlan 'Microsoft.Web/serverfarms@2024-04-01' = {
   name: functionPlanName
   location: location
@@ -298,7 +284,15 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
         }
         {
           name: 'sendingEmailAddress'
-          value: '@Microsoft.KeyVault(SecretUri=${sendingEmailAddressSecret.properties.secretUri})'
+          value: '@Microsoft.KeyVault(SecretUri=${keyVaultSecretUriPrefix}/sendingEmailAddress)'
+        }
+        {
+          name: 'operatorEmail'
+          value: '@Microsoft.KeyVault(SecretUri=${keyVaultSecretUriPrefix}/operatorEmail)'
+        }
+        {
+          name: 'supportEmail'
+          value: '@Microsoft.KeyVault(SecretUri=${keyVaultSecretUriPrefix}/supportEmail)'
         }
         {
           name: 'sendingEmailPassword'
@@ -326,7 +320,7 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
         }
         {
           name: 'nonProductionSafeRecipient'
-          value: nonProductionSafeRecipient
+          value: environmentName == 'prod' ? '' : '@Microsoft.KeyVault(SecretUri=${keyVaultSecretUriPrefix}/nonProductionSafeRecipient)'
         }
         {
           name: 'allowUnsafeNonProductionEmail'

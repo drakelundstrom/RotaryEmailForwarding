@@ -35,7 +35,7 @@ public sealed class EmailDeliveryOrchestrator(IEmailSender emailSender, IClock c
                 continue;
             }
 
-            var result = await emailSender.SendAsync(message, cancellationToken);
+            var result = await SendSafelyAsync(message, cancellationToken);
             attempts.Add(ToAttempt(message, result));
 
             switch (result.Status)
@@ -103,5 +103,27 @@ public sealed class EmailDeliveryOrchestrator(IEmailSender emailSender, IClock c
             ProviderCode = result.ProviderCode,
             ProviderResponse = result.ProviderResponse
         };
+    }
+
+    private async Task<EmailSendResult> SendSafelyAsync(
+        OutboundEmailMessage message,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await emailSender.SendAsync(message, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            var status = exception is ArgumentException or FormatException or InvalidOperationException
+                ? OutboundEmailAttemptStatus.TerminalFailed
+                : OutboundEmailAttemptStatus.RetryableFailed;
+
+            return EmailSendResult.Failed(status, exception.GetType().Name, exception.Message);
+        }
     }
 }

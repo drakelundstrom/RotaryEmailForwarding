@@ -134,7 +134,7 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
             OutboundEmailMessageType.SubmitterRejection,
             [submission.Email!.Trim()],
             "Rotary Youth Exchange availability",
-            $"Thank you for your interest in Rotary Youth Exchange. At this time, {countryName} is not certified for this program through this site. Please contact {configuration.OperatorEmail} with questions.{Environment.NewLine}{Environment.NewLine}{StudentInformationBlock(submission)}");
+            $"Thank you for your interest in Rotary Youth Exchange. At this time, {countryName} is not certified for this program through this site. Please contact {configuration.SupportEmail} with questions.{Environment.NewLine}{Environment.NewLine}{StudentInformationBlock(submission)}");
     }
 
     private OutboundEmailMessage BuildOperatorFallbackMessage(

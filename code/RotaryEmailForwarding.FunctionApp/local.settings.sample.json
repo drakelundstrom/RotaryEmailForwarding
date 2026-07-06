@@ -7,14 +7,16 @@
     "cosmosDatabaseName": "EmailForwarding",
     "cosmosContainerName": "ContactInfoAndRequests",
     "databaseConnectionString": "",
-    "sendingEmailAddress": "DrakeLundstrom95@gmail.com",
+    "sendingEmailAddress": "sender@example.test",
+    "operatorEmail": "operator@example.test",
+    "supportEmail": "support@example.test",
     "sendingEmailPassword": "",
     "mailHost": "localhost",
     "mailPort": "1025",
     "mailSecurityMode": "None",
     "emailRetryTimeZone": "Eastern Standard Time",
     "adminApiKey": "local-admin-key",
-    "nonProductionSafeRecipient": "DrakeLundstrom95@gmail.com",
+    "nonProductionSafeRecipient": "local-sink@example.test",
     "allowUnsafeNonProductionEmail": "false",
     "maxRequestBodyBytes": "131072"
   }
