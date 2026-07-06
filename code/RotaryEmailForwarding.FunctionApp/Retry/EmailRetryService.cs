@@ -1,6 +1,7 @@
 using RotaryEmailForwarding.FunctionApp.Domain;
 using RotaryEmailForwarding.FunctionApp.Email;
 using RotaryEmailForwarding.FunctionApp.Models;
+using RotaryEmailForwarding.FunctionApp.Configuration;
 using RotaryEmailForwarding.FunctionApp.Routing;
 using RotaryEmailForwarding.FunctionApp.Services;
 using RotaryEmailForwarding.FunctionApp.Storage;
@@ -14,13 +15,18 @@ public sealed class EmailRetryService(
     SubmissionRoutingService routingService,
     EmailTemplateService templateService,
     EmailDeliveryOrchestrator deliveryOrchestrator,
-    IClock clock)
+    IClock clock,
+    AppConfiguration configuration)
 {
     public async Task<EmailRetryRunResult> RetryAsync(CancellationToken cancellationToken)
     {
         var now = clock.UtcNow;
-        var previousDayStart = now.Date.AddDays(-1);
-        var previousDayEnd = now.Date;
+        var retryTimeZone = RetryTimeZone.Resolve(configuration.EmailRetryTimeZone);
+        var localNow = TimeZoneInfo.ConvertTime(now, retryTimeZone);
+        var previousLocalDayStart = DateTime.SpecifyKind(localNow.Date.AddDays(-1), DateTimeKind.Unspecified);
+        var previousLocalDayEnd = DateTime.SpecifyKind(localNow.Date, DateTimeKind.Unspecified);
+        var previousDayStart = new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(previousLocalDayStart, retryTimeZone));
+        var previousDayEnd = new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(previousLocalDayEnd, retryTimeZone));
 
         var submissions = await repository.GetRetryableUnsentSubmissionsAsync(
             previousDayStart,

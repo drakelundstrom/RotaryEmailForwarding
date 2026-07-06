@@ -89,7 +89,6 @@ var deploymentPackageContainerName = 'function-releases'
 var keyVaultSecretUriPrefix = '${keyVault.properties.vaultUri}secrets'
 
 var storageBlobDataOwnerRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b')
-var storageQueueDataContributorRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '974c5e8b-45b9-4653-ba55-5f855dd0fb88')
 var storageTableDataContributorRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3')
 var keyVaultSecretsUserRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
 var monitoringMetricsPublisherRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '3913510d-42f4-4e42-8a64-420c390055eb')
@@ -254,10 +253,6 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
       minTlsVersion: '1.2'
       appSettings: [
         {
-          name: 'FUNCTIONS_EXTENSION_VERSION'
-          value: '~4'
-        }
-        {
           name: 'AzureWebJobsStorage__credential'
           value: 'managedidentity'
         }
@@ -341,6 +336,10 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
           name: 'maxRequestBodyBytes'
           value: maxRequestBodyBytes
         }
+        {
+          name: 'FUNCTIONS_REQUEST_BODY_SIZE_LIMIT'
+          value: maxRequestBodyBytes
+        }
       ]
     }
   }
@@ -353,16 +352,6 @@ resource functionBlobRoleAssignment 'Microsoft.Authorization/roleAssignments@202
     principalId: functionApp.identity.principalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: storageBlobDataOwnerRoleId
-  }
-}
-
-resource functionQueueRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storage.id, functionApp.id, 'queue')
-  scope: storage
-  properties: {
-    principalId: functionApp.identity.principalId
-    principalType: 'ServicePrincipal'
-    roleDefinitionId: storageQueueDataContributorRoleId
   }
 }
 

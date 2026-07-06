@@ -54,7 +54,7 @@ Azure environments use Key Vault references for `sendingEmailAddress`, `sendingE
 
 Submissions are persisted before outbound email starts. `SentOnUtc` is set only after every required outbound email message for that submission succeeds. Retryable SMTP/provider failures and quota failures leave `SentOnUtc=null`, set `EmailDeliveryStatus=RetryPending`, and keep the submission eligible for the scheduled retry function.
 
-The retry timer runs daily at `03:00`. In Azure, set the platform timezone consistently with `emailRetryTimeZone`.
+Flex Consumption does not support `WEBSITE_TIME_ZONE`, so the retry trigger wakes hourly and only runs when the configured `emailRetryTimeZone` resolves to local hour `03:00`.
 
 ## Security and Retention
 

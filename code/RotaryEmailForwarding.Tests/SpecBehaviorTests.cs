@@ -5,6 +5,7 @@ using RotaryEmailForwarding.FunctionApp.Email;
 using RotaryEmailForwarding.FunctionApp.Models;
 using RotaryEmailForwarding.FunctionApp.Reporting;
 using RotaryEmailForwarding.FunctionApp.Routing;
+using RotaryEmailForwarding.FunctionApp.Retry;
 using RotaryEmailForwarding.FunctionApp.Services;
 using RotaryEmailForwarding.FunctionApp.Storage;
 using RotaryEmailForwarding.FunctionApp.Workflow;
@@ -222,6 +223,14 @@ public sealed class SpecBehaviorTests
 
         Assert.Equal(OutboundEmailAttemptStatus.QuotaExceeded, result.Status);
         Assert.Equal("QuotaExceeded", result.ProviderCode);
+    }
+
+    [Fact]
+    public void RetryTimeZone_ResolvesEasternAcrossSupportedRuntimeIds()
+    {
+        var timeZone = RetryTimeZone.Resolve("Eastern Standard Time");
+
+        Assert.NotEqual(TimeZoneInfo.Utc.Id, timeZone.Id);
     }
 
     private static SubmissionWorkflow BuildWorkflow(InMemoryApplicationRepository repository, FakeEmailSender sender)
