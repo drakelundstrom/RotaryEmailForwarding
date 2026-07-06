@@ -1,0 +1,178 @@
+name: Validate, deploy infrastructure, and promote Function app
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: rotary-email-forwarding-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_VERSION: 10.0.x
+  FUNCTION_PROJECT: code/RotaryEmailForwarding.FunctionApp/RotaryEmailForwarding.FunctionApp.csproj
+  TEST_PROJECT: code/RotaryEmailForwarding.Tests/RotaryEmailForwarding.Tests.csproj
+  ARTIFACT_NAME: functionapp-package
+
+jobs:
+  validate:
+    name: Restore, build, and test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore ${{ env.TEST_PROJECT }}
+
+      - name: Build
+        run: dotnet build ${{ env.TEST_PROJECT }} --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test ${{ env.TEST_PROJECT }} --configuration Release --no-build --logger trx
+
+      - name: Validate Bicep syntax
+        run: az bicep build --file infra/main.bicep
+
+      - name: Validate Bicep parameter files
+        run: |
+          az bicep build-params --file infra/params/parameters.test.bicepparam
+          az bicep build-params --file infra/params/parameters.prod.bicepparam
+
+  package:
+    name: Build immutable release artifact
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Publish Function app
+        run: dotnet publish ${{ env.FUNCTION_PROJECT }} --configuration Release --output publish/functionapp
+
+      - name: Create deployment zip
+        run: |
+          cd publish/functionapp
+          zip -r ../functionapp.zip .
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: publish/functionapp.zip
+          if-no-files-found: error
+          retention-days: 30
+
+  deploy-test:
+    name: Deploy test
+    runs-on: ubuntu-latest
+    needs: package
+    environment: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download release artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: publish
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy infrastructure
+        id: infra
+        run: |
+          deployment_name="rotary-email-forwarding-test-${GITHUB_RUN_NUMBER}"
+          az deployment group create \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "$deployment_name" \
+            --parameters infra/params/parameters.test.bicepparam
+          function_name=$(az deployment group show \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "$deployment_name" \
+            --query properties.outputs.functionAppName.value \
+            --output tsv)
+          echo "function_name=$function_name" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy same Function app package
+        run: |
+          az functionapp deployment source config-zip \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ steps.infra.outputs.function_name }}" \
+            --src publish/functionapp.zip
+
+      - name: Smoke test
+        run: curl --fail --show-error --silent "https://${{ steps.infra.outputs.function_name }}.azurewebsites.net/api/health"
+
+  deploy-prod:
+    name: Promote to prod
+    runs-on: ubuntu-latest
+    needs: deploy-test
+    environment: prod
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download release artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: publish
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy infrastructure
+        id: infra
+        run: |
+          deployment_name="rotary-email-forwarding-prod-${GITHUB_RUN_NUMBER}"
+          az deployment group create \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "$deployment_name" \
+            --parameters infra/params/parameters.prod.bicepparam
+          function_name=$(az deployment group show \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "$deployment_name" \
+            --query properties.outputs.functionAppName.value \
+            --output tsv)
+          echo "function_name=$function_name" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy same Function app package
+        run: |
+          az functionapp deployment source config-zip \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ steps.infra.outputs.function_name }}" \
+            --src publish/functionapp.zip
+
+      - name: Post-deploy smoke test
+        run: curl --fail --show-error --silent "https://${{ steps.infra.outputs.function_name }}.azurewebsites.net/api/health"
