@@ -48,12 +48,12 @@ jobs:
         run: dotnet test ${{ env.TEST_PROJECT }} --configuration Release --no-build --logger trx
 
       - name: Validate Bicep syntax
-        run: az bicep build --file infra/main.bicep
+        run: az bicep build --file infra/main.bicep --stdout > /dev/null
 
       - name: Validate Bicep parameter files
         run: |
-          az bicep build-params --file infra/params/parameters.test.bicepparam
-          az bicep build-params --file infra/params/parameters.prod.bicepparam
+          az bicep build-params --file infra/params/parameters.test.bicepparam --stdout > /dev/null
+          az bicep build-params --file infra/params/parameters.prod.bicepparam --stdout > /dev/null
 
   package:
     name: Build immutable release artifact
@@ -91,6 +91,8 @@ jobs:
     needs: package
     if: github.ref == 'refs/heads/test'
     environment: test
+    env:
+      AZURE_RESOURCE_GROUP: TestRotaryEmailForwarding
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -101,23 +103,34 @@ jobs:
           name: ${{ env.ARTIFACT_NAME }}
           path: publish
 
+      - name: Verify Azure deployment settings
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          : "${AZURE_CLIENT_ID:?Missing AZURE_CLIENT_ID environment secret}"
+          : "${AZURE_TENANT_ID:?Missing AZURE_TENANT_ID environment secret}"
+          : "${AZURE_SUBSCRIPTION_ID:?Missing AZURE_SUBSCRIPTION_ID environment secret}"
+          : "${AZURE_RESOURCE_GROUP:?Missing AZURE_RESOURCE_GROUP job setting}"
+
       - name: Azure login
         uses: azure/login@v2
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Deploy infrastructure
         id: infra
         run: |
           deployment_name="rotary-email-forwarding-test-${GITHUB_RUN_NUMBER}"
           az deployment group create \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --resource-group "${AZURE_RESOURCE_GROUP}" \
             --name "$deployment_name" \
             --parameters infra/params/parameters.test.bicepparam
           function_name=$(az deployment group show \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --resource-group "${AZURE_RESOURCE_GROUP}" \
             --name "$deployment_name" \
             --query properties.outputs.functionAppName.value \
             --output tsv)
@@ -126,7 +139,7 @@ jobs:
       - name: Deploy same Function app package
         run: |
           az functionapp deployment source config-zip \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --resource-group "${AZURE_RESOURCE_GROUP}" \
             --name "${{ steps.infra.outputs.function_name }}" \
             --src publish/functionapp.zip
 
@@ -139,6 +152,8 @@ jobs:
     needs: package
     if: github.ref == 'refs/heads/main'
     environment: prod
+    env:
+      AZURE_RESOURCE_GROUP: RotaryEmailForwarding
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -149,23 +164,34 @@ jobs:
           name: ${{ env.ARTIFACT_NAME }}
           path: publish
 
+      - name: Verify Azure deployment settings
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          : "${AZURE_CLIENT_ID:?Missing AZURE_CLIENT_ID environment secret}"
+          : "${AZURE_TENANT_ID:?Missing AZURE_TENANT_ID environment secret}"
+          : "${AZURE_SUBSCRIPTION_ID:?Missing AZURE_SUBSCRIPTION_ID environment secret}"
+          : "${AZURE_RESOURCE_GROUP:?Missing AZURE_RESOURCE_GROUP job setting}"
+
       - name: Azure login
         uses: azure/login@v2
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Deploy infrastructure
         id: infra
         run: |
           deployment_name="rotary-email-forwarding-prod-${GITHUB_RUN_NUMBER}"
           az deployment group create \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --resource-group "${AZURE_RESOURCE_GROUP}" \
             --name "$deployment_name" \
             --parameters infra/params/parameters.prod.bicepparam
           function_name=$(az deployment group show \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --resource-group "${AZURE_RESOURCE_GROUP}" \
             --name "$deployment_name" \
             --query properties.outputs.functionAppName.value \
             --output tsv)
@@ -174,7 +200,7 @@ jobs:
       - name: Deploy same Function app package
         run: |
           az functionapp deployment source config-zip \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --resource-group "${AZURE_RESOURCE_GROUP}" \
             --name "${{ steps.infra.outputs.function_name }}" \
             --src publish/functionapp.zip
 
