@@ -33,8 +33,8 @@ param keyVaultName string
 @description('Cosmos DB account name.')
 param cosmosAccountName string
 
-@description('Resource group that contains the existing Cosmos DB account.')
-param cosmosAccountResourceGroupName string = resourceGroup().name
+@description('Resource group that contains the existing Cosmos DB account managed outside this deployment.')
+param cosmosAccountResourceGroupName string
 
 @description('Cosmos DB SQL database name.')
 param cosmosDatabaseName string = 'EmailForwarding'
@@ -83,6 +83,7 @@ var storageBlobDataOwnerRoleId = subscriptionResourceId('Microsoft.Authorization
 var storageQueueDataContributorRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '974c5e8b-45b9-4653-ba55-5f855dd0fb88')
 var storageTableDataContributorRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3')
 var keyVaultSecretsUserRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
+var monitoringMetricsPublisherRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '3913510d-42f4-4e42-8a64-420c390055eb')
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: logAnalyticsWorkspaceName
@@ -353,6 +354,16 @@ resource functionKeyVaultRoleAssignment 'Microsoft.Authorization/roleAssignments
     principalId: functionApp.identity.principalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: keyVaultSecretsUserRoleId
+  }
+}
+
+resource functionApplicationInsightsRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(applicationInsights.id, functionApp.id, 'monitoring-metrics-publisher')
+  scope: applicationInsights
+  properties: {
+    principalId: functionApp.identity.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: monitoringMetricsPublisherRoleId
   }
 }
 
