@@ -50,6 +50,10 @@ public sealed class SubmitInterestFunction(
                 },
                 cancellationToken);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception exception)
         {
             logger.LogError(exception, "Failed to store raw request log. CorrelationId: {CorrelationId}", correlationId);
@@ -104,6 +108,10 @@ public sealed class SubmitInterestFunction(
         try
         {
             result = await workflow.ProcessAsync(submissionRequest, rawBody, correlationId, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception exception)
         {

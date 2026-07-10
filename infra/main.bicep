@@ -243,6 +243,14 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
           value: 'managedidentity'
         }
         {
+          name: 'AzureWebJobsStorage__accountName'
+          value: storage.name
+        }
+        {
+          name: 'AzureWebJobsStorage__endpointSuffix'
+          value: environment().suffixes.storage
+        }
+        {
           name: 'AzureWebJobsStorage__blobServiceUri'
           value: 'https://${storage.name}.blob.${environment().suffixes.storage}'
         }
@@ -356,6 +364,18 @@ resource functionTableRoleAssignment 'Microsoft.Authorization/roleAssignments@20
     principalId: functionApp.identity.principalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: storageTableDataContributorRoleId
+  }
+}
+
+var storageQueueDataContributorRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5e7e9a71-5a1b-4e66-9e8f-7f0ed11a0e39')
+
+resource functionQueueRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storage.id, functionApp.id, 'queue')
+  scope: storage
+  properties: {
+    principalId: functionApp.identity.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: storageQueueDataContributorRoleId
   }
 }
 
