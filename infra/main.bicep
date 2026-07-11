@@ -81,8 +81,35 @@ var tags = {
 
 var deploymentPackageContainerName = 'function-releases'
 var keyVaultSecretUriPrefix = '${keyVault.properties.vaultUri}secrets'
+var functionAppSettings = {
+  AzureWebJobsStorage__credential: 'managedidentity'
+  AzureWebJobsStorage__blobServiceUri: 'https://${storage.name}.blob.${environment().suffixes.storage}'
+  AzureWebJobsStorage__queueServiceUri: 'https://${storage.name}.queue.${environment().suffixes.storage}'
+  AzureWebJobsStorage__tableServiceUri: 'https://${storage.name}.table.${environment().suffixes.storage}'
+  APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsights.properties.ConnectionString
+  APPLICATIONINSIGHTS_AUTHENTICATION_STRING: 'Authorization=AAD'
+  appEnvironment: environmentName
+  cosmosDatabaseName: cosmosDatabaseName
+  cosmosContainerName: cosmosContainerName
+  cosmosAccountEndpoint: cosmosAccount.properties.documentEndpoint
+  databaseConnectionString: '@Microsoft.KeyVault(SecretUri=${databaseConnectionStringSecret.properties.secretUri})'
+  sendingEmailAddress: '@Microsoft.KeyVault(SecretUri=${keyVaultSecretUriPrefix}/sendingEmailAddress)'
+  operatorEmail: '@Microsoft.KeyVault(SecretUri=${keyVaultSecretUriPrefix}/operatorEmail)'
+  supportEmail: '@Microsoft.KeyVault(SecretUri=${keyVaultSecretUriPrefix}/supportEmail)'
+  sendingEmailPassword: '@Microsoft.KeyVault(SecretUri=${keyVaultSecretUriPrefix}/sendingEmailPassword)'
+  mailHost: mailHost
+  mailPort: mailPort
+  mailSecurityMode: mailSecurityMode
+  emailRetryTimeZone: emailRetryTimeZone
+  adminApiKey: '@Microsoft.KeyVault(SecretUri=${keyVaultSecretUriPrefix}/adminApiKey)'
+  nonProductionSafeRecipient: environmentName == 'prod' ? '' : '@Microsoft.KeyVault(SecretUri=${keyVaultSecretUriPrefix}/nonProductionSafeRecipient)'
+  allowUnsafeNonProductionEmail: 'false'
+  maxRequestBodyBytes: maxRequestBodyBytes
+  FUNCTIONS_REQUEST_BODY_SIZE_LIMIT: maxRequestBodyBytes
+}
 
 var storageBlobDataOwnerRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b')
+var storageQueueDataContributorRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '974c5e8b-45b9-4653-ba55-5f855dd0fb88')
 var storageTableDataContributorRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3')
 var keyVaultSecretsUserRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')
 var monitoringMetricsPublisherRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '3913510d-42f4-4e42-8a64-420c390055eb')
@@ -234,117 +261,15 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
       }
     }
     siteConfig: {
-      alwaysOn: false
-      ftpsState: 'Disabled'
       minTlsVersion: '1.2'
-      appSettings: [
-        {
-          name: 'AzureWebJobsStorage__credential'
-          value: 'managedidentity'
-        }
-        {
-          name: 'AzureWebJobsStorage__accountName'
-          value: storage.name
-        }
-        {
-          name: 'AzureWebJobsStorage__endpointSuffix'
-          value: environment().suffixes.storage
-        }
-        {
-          name: 'AzureWebJobsStorage__blobServiceUri'
-          value: 'https://${storage.name}.blob.${environment().suffixes.storage}'
-        }
-        {
-          name: 'AzureWebJobsStorage__queueServiceUri'
-          value: 'https://${storage.name}.queue.${environment().suffixes.storage}'
-        }
-        {
-          name: 'AzureWebJobsStorage__tableServiceUri'
-          value: 'https://${storage.name}.table.${environment().suffixes.storage}'
-        }
-        {
-          name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
-          value: applicationInsights.properties.ConnectionString
-        }
-        {
-          name: 'APPLICATIONINSIGHTS_AUTHENTICATION_STRING'
-          value: 'Authorization=AAD'
-        }
-        {
-          name: 'appEnvironment'
-          value: environmentName
-        }
-        {
-          name: 'cosmosDatabaseName'
-          value: cosmosDatabaseName
-        }
-        {
-          name: 'cosmosContainerName'
-          value: cosmosContainerName
-        }
-        {
-          name: 'cosmosAccountEndpoint'
-          value: cosmosAccount.properties.documentEndpoint
-        }
-        {
-          name: 'databaseConnectionString'
-          value: '@Microsoft.KeyVault(SecretUri=${databaseConnectionStringSecret.properties.secretUri})'
-        }
-        {
-          name: 'sendingEmailAddress'
-          value: '@Microsoft.KeyVault(SecretUri=${keyVaultSecretUriPrefix}/sendingEmailAddress)'
-        }
-        {
-          name: 'operatorEmail'
-          value: '@Microsoft.KeyVault(SecretUri=${keyVaultSecretUriPrefix}/operatorEmail)'
-        }
-        {
-          name: 'supportEmail'
-          value: '@Microsoft.KeyVault(SecretUri=${keyVaultSecretUriPrefix}/supportEmail)'
-        }
-        {
-          name: 'sendingEmailPassword'
-          value: '@Microsoft.KeyVault(SecretUri=${keyVaultSecretUriPrefix}/sendingEmailPassword)'
-        }
-        {
-          name: 'mailHost'
-          value: mailHost
-        }
-        {
-          name: 'mailPort'
-          value: mailPort
-        }
-        {
-          name: 'mailSecurityMode'
-          value: mailSecurityMode
-        }
-        {
-          name: 'emailRetryTimeZone'
-          value: emailRetryTimeZone
-        }
-        {
-          name: 'adminApiKey'
-          value: '@Microsoft.KeyVault(SecretUri=${keyVaultSecretUriPrefix}/adminApiKey)'
-        }
-        {
-          name: 'nonProductionSafeRecipient'
-          value: environmentName == 'prod' ? '' : '@Microsoft.KeyVault(SecretUri=${keyVaultSecretUriPrefix}/nonProductionSafeRecipient)'
-        }
-        {
-          name: 'allowUnsafeNonProductionEmail'
-          value: environmentName == 'prod' ? 'false' : 'false'
-        }
-        {
-          name: 'maxRequestBodyBytes'
-          value: maxRequestBodyBytes
-        }
-        {
-          name: 'FUNCTIONS_REQUEST_BODY_SIZE_LIMIT'
-          value: maxRequestBodyBytes
-        }
-      ]
     }
   }
+}
+
+resource functionAppAppSettings 'Microsoft.Web/sites/config@2024-04-01' = {
+  parent: functionApp
+  name: 'appsettings'
+  properties: functionAppSettings
 }
 
 resource functionBlobRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
@@ -366,8 +291,6 @@ resource functionTableRoleAssignment 'Microsoft.Authorization/roleAssignments@20
     roleDefinitionId: storageTableDataContributorRoleId
   }
 }
-
-var storageQueueDataContributorRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '5e7e9a71-5a1b-4e66-9e8f-7f0ed11a0e39')
 
 resource functionQueueRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(storage.id, functionApp.id, 'queue')
