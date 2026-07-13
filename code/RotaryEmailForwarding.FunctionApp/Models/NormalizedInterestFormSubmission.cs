@@ -20,6 +20,8 @@ public sealed record NormalizedInterestFormSubmission
 
     public string? Age { get; init; }
 
+    public string? ParentEnteredAge { get; init; }
+
     public string? StudentEmail { get; init; }
 
     public string? StudentPhone { get; init; }

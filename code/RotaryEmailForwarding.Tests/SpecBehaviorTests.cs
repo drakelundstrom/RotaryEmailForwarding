@@ -40,10 +40,19 @@ public sealed class SpecBehaviorTests
             {
                 SubmissionType = "Student",
                 Name = "Jordan Example",
+                Age = "16",
+                ParentEnteredAge = "15",
                 StudentEmail = "jordan@example.com",
+                StudentPhone = "555-0100",
                 ParentEmail = "parent@example.com",
+                ParentPhone = "555-0101",
+                ContactEmail = "generic@example.com",
+                ContactPhone = "555-0102",
                 CountryOfResidence = "United States",
-                Zipcode = "44102-1234"
+                State = "Ohio",
+                City = "Cleveland",
+                Zipcode = "44102-1234",
+                OptionalSubmissionQuestion = "Can I choose a country?"
             },
             "corr-1",
             CancellationToken.None);
@@ -58,6 +67,21 @@ public sealed class SpecBehaviorTests
         Assert.Contains(
             "We are reaching out to connect you with our local coordinators in Rotary District 6630.",
             message.Body);
+        Assert.Contains("Who are you?: Student", message.Body);
+        Assert.Contains("Name: Jordan Example", message.Body);
+        Assert.Contains("Current age (years): 16", message.Body);
+        Assert.Contains("Current age of your student (years): 15", message.Body);
+        Assert.Contains("Student's email: jordan@example.com", message.Body);
+        Assert.Contains("Student's phone number: 555-0100", message.Body);
+        Assert.Contains("Parent's email: parent@example.com", message.Body);
+        Assert.Contains("Parent's phone number: 555-0101", message.Body);
+        Assert.Contains("Contact email: generic@example.com", message.Body);
+        Assert.Contains("Contact phone number: 555-0102", message.Body);
+        Assert.Contains("Country of residence: USA", message.Body);
+        Assert.Contains("State or province: Ohio", message.Body);
+        Assert.Contains("City: Cleveland", message.Body);
+        Assert.Contains("Zip code or first 3 of CDN postal code: 44102", message.Body);
+        Assert.Contains("Specific questions: Can I choose a country?", message.Body);
     }
 
     [Fact]
@@ -154,6 +178,10 @@ public sealed class SpecBehaviorTests
 
         var studentMessage = Assert.Single(studentSender.SentMessages);
         Assert.DoesNotContain("support@example.com", studentMessage.Recipients);
+        Assert.Contains("Student's email: student@example.com", studentMessage.Body);
+        Assert.DoesNotContain("Parent's email", studentMessage.Body);
+        Assert.DoesNotContain("Contact email", studentMessage.Body);
+        Assert.DoesNotContain("Current age", studentMessage.Body);
 
         var rotarianSender = new FakeEmailSender();
         var rotarianWorkflow = BuildWorkflow(repository, rotarianSender, supportEmail: "support@example.com");
@@ -171,6 +199,44 @@ public sealed class SpecBehaviorTests
 
         var rotarianMessage = Assert.Single(rotarianSender.SentMessages);
         Assert.Contains("support@example.com", rotarianMessage.Recipients);
+    }
+
+    [Fact]
+    public async Task Workflow_IncludesStudentAndParentRecipientsWhenBothEmailsAreProvided()
+    {
+        var repository = new InMemoryApplicationRepository();
+        await repository.UpsertDistrictContactsAsync(
+            [
+                new ContactsForDistrict
+                {
+                    Country = "usa",
+                    District = "6630",
+                    EmailAddresses = ["rep@example.com"],
+                    ZipCodes = ["44102"]
+                }
+            ],
+            CancellationToken.None);
+
+        var sender = new FakeEmailSender();
+        var workflow = BuildWorkflow(repository, sender);
+        await workflow.ProcessAsync(
+            new InterestFormSubmissionRequest
+            {
+                SubmissionType = "Parent",
+                Name = "Parent Example",
+                StudentEmail = "student@example.com",
+                ParentEmail = "parent@example.com",
+                ContactEmail = "contact@example.com",
+                CountryOfResidence = "United States",
+                Zipcode = "44102"
+            },
+            "corr-student-parent",
+            CancellationToken.None);
+
+        var message = Assert.Single(sender.SentMessages);
+        Assert.Equal(
+            ["rep@example.com", "student@example.com", "parent@example.com", "contact@example.com"],
+            message.Recipients);
     }
 
     [Fact]

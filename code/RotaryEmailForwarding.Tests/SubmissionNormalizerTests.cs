@@ -100,8 +100,9 @@ public sealed class SubmissionNormalizerTests
         Assert.Equal("student@example.com", normalized.StudentEmail);
         Assert.Equal("555-0100", normalized.StudentPhone);
         Assert.Equal("parent@example.com", normalized.ParentEmail);
-        Assert.Null(normalized.ContactEmail);
-        Assert.Null(normalized.ContactPhone);
+        Assert.Equal("15", normalized.ParentEnteredAge);
+        Assert.Equal("contact@example.com", normalized.ContactEmail);
+        Assert.Equal("555-0102", normalized.ContactPhone);
         Assert.Equal("Can I choose a country?", normalized.OptionalSubmissionQuestion);
     }
 
@@ -120,8 +121,9 @@ public sealed class SubmissionNormalizerTests
             },
             DateTimeOffset.UtcNow);
 
-        Assert.Equal("15", normalized.Age);
-        Assert.Null(normalized.StudentEmail);
+        Assert.Equal("16", normalized.Age);
+        Assert.Equal("15", normalized.ParentEnteredAge);
+        Assert.Equal("student@example.com", normalized.StudentEmail);
         Assert.Equal("parent-contact@example.com", normalized.ContactEmail);
         Assert.Equal("555-0102", normalized.ContactPhone);
     }

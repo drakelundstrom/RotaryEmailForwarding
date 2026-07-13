@@ -42,10 +42,11 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
         var recipients = new List<string>();
         var submitterType = SubmissionNormalizer.GetSubmitterType(submission.SubmissionType);
 
+        AddEmail(recipients, submission.StudentEmail);
+        AddEmail(recipients, submission.ParentEmail);
+
         if (submitterType == InterestFormSubmitterType.Student)
         {
-            AddEmail(recipients, submission.StudentEmail);
-            AddEmail(recipients, submission.ParentEmail);
             return recipients
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
@@ -192,37 +193,26 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
 
     private static string SubmissionInformationBlock(NormalizedInterestFormSubmission submission)
     {
-        var lines = new List<string>
-        {
-            $"Who submitted: {UnknownIfBlank(submission.SubmissionType)}",
-            $"Name: {UnknownIfBlank(submission.Name)}",
-            $"Student age: {UnknownIfBlank(submission.Age)}"
-        };
+        var lines = new List<string>();
+        AddLine(lines, "Who are you?", submission.SubmissionType);
+        AddLine(lines, "Name", submission.Name);
+        AddLine(lines, "Current age (years)", submission.Age);
+        AddLine(lines, "Current age of your student (years)", submission.ParentEnteredAge);
+        AddLine(lines, "Student's email", submission.StudentEmail);
+        AddLine(lines, "Student's phone number", submission.StudentPhone);
+        AddLine(lines, "Parent's email", submission.ParentEmail);
+        AddLine(lines, "Parent's phone number", submission.ParentPhone);
+        AddLine(lines, "Contact email", submission.ContactEmail);
+        AddLine(lines, "Contact phone number", submission.ContactPhone);
+        AddCountryLine(lines, submission.CountryOfResidence);
+        AddLine(lines, "State or province", submission.State);
+        AddLine(lines, "City", submission.City);
+        AddLine(lines, "Zip code or first 3 of CDN postal code", submission.Zipcode);
+        AddLine(lines, "Specific questions", submission.OptionalSubmissionQuestion);
 
-        var submitterType = SubmissionNormalizer.GetSubmitterType(submission.SubmissionType);
-        if (submitterType == InterestFormSubmitterType.Student)
-        {
-            lines.Add($"Student email: {UnknownIfBlank(submission.StudentEmail)}");
-            lines.Add($"Student phone: {UnknownIfBlank(submission.StudentPhone)}");
-            lines.Add($"Parent email: {UnknownIfBlank(submission.ParentEmail)}");
-            lines.Add($"Parent phone: {UnknownIfBlank(submission.ParentPhone)}");
-        }
-        else
-        {
-            lines.Add($"Contact email: {UnknownIfBlank(submission.ContactEmail)}");
-            lines.Add($"Contact phone: {UnknownIfBlank(submission.ContactPhone)}");
-        }
-
-        lines.AddRange(
-        [
-            $"Country of residence: {GetDisplayCountryName(submission.CountryOfResidence)}",
-            $"State: {UnknownIfBlank(submission.State)}",
-            $"City: {UnknownIfBlank(submission.City)}",
-            $"Zipcode/postal code: {UnknownIfBlank(submission.Zipcode)}",
-            $"Question: {UnknownIfBlank(submission.OptionalSubmissionQuestion)}"
-        ]);
-
-        return string.Join(Environment.NewLine, lines);
+        return lines.Count == 0
+            ? "No form details were provided."
+            : string.Join(Environment.NewLine, lines);
     }
 
     private static string GetDisplayCountryName(string? country)
@@ -245,5 +235,21 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
     private static string UnknownIfBlank(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? "Unknown" : value.Trim();
+    }
+
+    private static void AddLine(List<string> lines, string label, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            lines.Add($"{label}: {value.Trim()}");
+        }
+    }
+
+    private static void AddCountryLine(List<string> lines, string? country)
+    {
+        if (!string.IsNullOrWhiteSpace(country))
+        {
+            lines.Add($"Country of residence: {GetDisplayCountryName(country)}");
+        }
     }
 }

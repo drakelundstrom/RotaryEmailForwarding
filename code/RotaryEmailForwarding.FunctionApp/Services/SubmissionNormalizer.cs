@@ -29,7 +29,6 @@ public static class SubmissionNormalizer
     {
         var normalizedCountry = NormalizeCountry(request.CountryOfResidence);
         var normalizedZipcode = NormalizeZipcode(request.Zipcode, normalizedCountry);
-        var submitterType = GetSubmitterType(request.SubmissionType);
 
         return new NormalizedInterestFormSubmission
         {
@@ -37,13 +36,14 @@ public static class SubmissionNormalizer
             SubmissionType = TrimToNull(request.SubmissionType),
             OptionalSubmissionQuestion = TrimToNull(request.OptionalSubmissionQuestion),
             Name = TrimToNull(request.Name),
-            Age = GetStudentAge(request, submitterType),
-            StudentEmail = KeepForStudent(request.StudentEmail, submitterType),
-            StudentPhone = KeepForStudent(request.StudentPhone, submitterType),
-            ParentEmail = KeepForStudent(request.ParentEmail, submitterType),
-            ParentPhone = KeepForStudent(request.ParentPhone, submitterType),
-            ContactEmail = KeepForNonStudent(request.ContactEmail, submitterType),
-            ContactPhone = KeepForNonStudent(request.ContactPhone, submitterType),
+            Age = TrimToNull(request.Age),
+            ParentEnteredAge = TrimToNull(request.ParentEnteredAge),
+            StudentEmail = TrimToNull(request.StudentEmail),
+            StudentPhone = TrimToNull(request.StudentPhone),
+            ParentEmail = TrimToNull(request.ParentEmail),
+            ParentPhone = TrimToNull(request.ParentPhone),
+            ContactEmail = TrimToNull(request.ContactEmail),
+            ContactPhone = TrimToNull(request.ContactPhone),
             CountryOfResidence = normalizedCountry,
             State = TrimToNull(request.State),
             City = TrimToNull(request.City),
@@ -124,33 +124,6 @@ public static class SubmissionNormalizer
         var trimmed = value?.Trim();
 
         return string.IsNullOrEmpty(trimmed) ? null : trimmed;
-    }
-
-    private static string? GetStudentAge(
-        InterestFormSubmissionRequest request,
-        InterestFormSubmitterType submitterType)
-    {
-        return submitterType switch
-        {
-            InterestFormSubmitterType.Student => TrimToNull(request.Age),
-            InterestFormSubmitterType.Parent => TrimToNull(request.ParentEnteredAge),
-            InterestFormSubmitterType.Unknown when string.IsNullOrWhiteSpace(request.SubmissionType) => TrimToNull(request.Age),
-            _ => null
-        };
-    }
-
-    private static string? KeepForStudent(string? value, InterestFormSubmitterType submitterType)
-    {
-        return submitterType == InterestFormSubmitterType.Student
-            ? TrimToNull(value)
-            : null;
-    }
-
-    private static string? KeepForNonStudent(string? value, InterestFormSubmitterType submitterType)
-    {
-        return submitterType == InterestFormSubmitterType.Student
-            ? null
-            : TrimToNull(value);
     }
 
     private static string? NormalizeOptionKey(string? value)
