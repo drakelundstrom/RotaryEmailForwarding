@@ -1,5 +1,6 @@
 using RotaryEmailForwarding.FunctionApp.Domain;
 using RotaryEmailForwarding.FunctionApp.Models;
+using RotaryEmailForwarding.FunctionApp.Services;
 
 namespace RotaryEmailForwarding.FunctionApp.Storage;
 
@@ -86,10 +87,23 @@ public sealed class InMemoryApplicationRepository : IApplicationRepository
     {
         lock (gate)
         {
+            var district = EffectiveDistrictContacts(DateTimeOffset.UtcNow)
+                .FirstOrDefault(contact => string.Equals(contact.District, districtName, StringComparison.OrdinalIgnoreCase));
+            if (district is null || district.ZipCodes.Count == 0)
+            {
+                return Task.FromResult<IReadOnlyList<NormalizedInterestFormSubmission>>([]);
+            }
+
+            var normalizedCountry = SubmissionNormalizer.NormalizeCountry(district.Country);
+            var normalizedZipCodes = district.ZipCodes
+                .Select(zip => SubmissionNormalizer.NormalizeZipcode(zip, normalizedCountry))
+                .Where(zip => !string.IsNullOrWhiteSpace(zip))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
             var results = submissions
                 .Where(submission => submission.ReceivedOnUtc >= sinceUtc)
-                .Where(submission => submission.AdditionalFields.TryGetValue("routedDistricts", out var routedDistricts)
-                    && routedDistricts.ToString().Contains(districtName, StringComparison.OrdinalIgnoreCase))
+                .Where(submission => string.Equals(submission.CountryOfResidence, normalizedCountry, StringComparison.OrdinalIgnoreCase))
+                .Where(submission => submission.Zipcode is not null && normalizedZipCodes.Contains(submission.Zipcode))
                 .OrderByDescending(submission => submission.ReceivedOnUtc)
                 .ToList();
 
@@ -119,16 +133,7 @@ public sealed class InMemoryApplicationRepository : IApplicationRepository
     {
         lock (gate)
         {
-            var results = districtContacts
-                .Where(contact => IsEffective(contact.EffectiveFromUtc, contact.EffectiveToUtc, contact.IsActive, asOfUtc))
-                .GroupBy(contact => contact.DistrictName, StringComparer.OrdinalIgnoreCase)
-                .Select(group => group
-                    .OrderByDescending(contact => contact.Version)
-                    .ThenByDescending(contact => contact.EffectiveFromUtc)
-                    .ThenByDescending(contact => contact.Id)
-                    .First())
-                .OrderBy(contact => contact.DistrictName, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            var results = EffectiveDistrictContacts(asOfUtc);
 
             return Task.FromResult<IReadOnlyList<ContactsForDistrict>>(results);
         }
@@ -140,23 +145,19 @@ public sealed class InMemoryApplicationRepository : IApplicationRepository
         CancellationToken cancellationToken)
     {
         var contacts = await GetEffectiveDistrictContactsAsync(asOfUtc, cancellationToken);
-        return contacts.FirstOrDefault(contact => string.Equals(contact.DistrictName, districtName, StringComparison.OrdinalIgnoreCase));
+        return contacts.FirstOrDefault(contact => string.Equals(contact.District, districtName, StringComparison.OrdinalIgnoreCase));
     }
 
     public Task<ContactsForCountry?> GetEffectiveCountryContactAsync(
-        string normalizedCountryName,
+        string normalizedCountry,
         DateTimeOffset asOfUtc,
         CancellationToken cancellationToken)
     {
         lock (gate)
         {
             var result = countryContacts
-                .Where(contact => IsEffective(contact.EffectiveFromUtc, contact.EffectiveToUtc, contact.IsActive, asOfUtc))
-                .Where(contact => string.Equals(contact.CountryName, normalizedCountryName, StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(contact => contact.Version)
-                .ThenByDescending(contact => contact.EffectiveFromUtc)
-                .ThenByDescending(contact => contact.Id)
-                .FirstOrDefault();
+                .Where(contact => string.Equals(contact.Country, normalizedCountry, StringComparison.OrdinalIgnoreCase))
+                .LastOrDefault();
 
             return Task.FromResult(result);
         }
@@ -186,8 +187,13 @@ public sealed class InMemoryApplicationRepository : IApplicationRepository
         return Task.CompletedTask;
     }
 
-    private static bool IsEffective(DateTimeOffset fromUtc, DateTimeOffset? toUtc, bool isActive, DateTimeOffset asOfUtc)
+    private List<ContactsForDistrict> EffectiveDistrictContacts(DateTimeOffset asOfUtc)
     {
-        return isActive && fromUtc <= asOfUtc && (toUtc is null || toUtc > asOfUtc);
+        return districtContacts
+            .GroupBy(contact => $"{SubmissionNormalizer.NormalizeCountry(contact.Country)}:{contact.District}", StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.Last())
+            .OrderBy(contact => contact.Country, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(contact => contact.District, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 }

@@ -45,8 +45,8 @@ public sealed class SubmissionWorkflow(
         submission = submission with
         {
             Errors = routeErrors,
-            RoutedDistricts = route.DistrictContacts.Select(contact => contact.DistrictName).ToList(),
-            RoutedCountry = route.CountryContact?.CountryName
+            RoutedDistricts = route.DistrictContacts.Select(contact => contact.District).ToList(),
+            RoutedCountry = route.CountryContact?.Country
         };
 
         var messages = templateService.BuildMessages(submission, route, rawSubmissionJson);

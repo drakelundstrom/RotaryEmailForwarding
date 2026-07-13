@@ -2,6 +2,7 @@ using Microsoft.Azure.Cosmos;
 using RotaryEmailForwarding.FunctionApp.Configuration;
 using RotaryEmailForwarding.FunctionApp.Domain;
 using RotaryEmailForwarding.FunctionApp.Models;
+using RotaryEmailForwarding.FunctionApp.Services;
 
 namespace RotaryEmailForwarding.FunctionApp.Storage;
 
@@ -81,24 +82,57 @@ public sealed class CosmosApplicationRepository : IApplicationRepository
             cancellationToken);
     }
 
-    public Task<IReadOnlyList<NormalizedInterestFormSubmission>> GetSubmissionsByDistrictAsync(
+    public async Task<IReadOnlyList<NormalizedInterestFormSubmission>> GetSubmissionsByDistrictAsync(
         string districtName,
         DateTimeOffset sinceUtc,
         CancellationToken cancellationToken)
     {
-        const string query = """
+        var district = await GetEffectiveDistrictContactByNameAsync(districtName, DateTimeOffset.UtcNow, cancellationToken);
+        if (district is null || district.ZipCodes.Count == 0)
+        {
+            return [];
+        }
+
+        var normalizedCountry = SubmissionNormalizer.NormalizeCountry(district.Country);
+        if (normalizedCountry is null)
+        {
+            return [];
+        }
+
+        var normalizedZipCodes = district.ZipCodes
+            .Select(zip => SubmissionNormalizer.NormalizeZipcode(zip, normalizedCountry))
+            .Where(zip => !string.IsNullOrWhiteSpace(zip))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (normalizedZipCodes.Count == 0)
+        {
+            return [];
+        }
+
+        var zipParameters = normalizedZipCodes
+            .Select((_, index) => $"@zip{index}")
+            .ToList();
+        var query = $"""
             SELECT * FROM c
             WHERE c.Type = @type
               AND c.ReceivedOnUtc >= @sinceUtc
-              AND CONTAINS(LOWER(TO_STRING(c.RoutedDistricts)), LOWER(@districtName))
+              AND c.CountryOfResidence = @country
+              AND c.Zipcode IN ({string.Join(",", zipParameters)})
             ORDER BY c.ReceivedOnUtc DESC
             """;
 
-        return QueryAsync<NormalizedInterestFormSubmission>(
-            new QueryDefinition(query)
-                .WithParameter("@type", SubmissionType)
-                .WithParameter("@sinceUtc", sinceUtc)
-                .WithParameter("@districtName", districtName),
+        var queryDefinition = new QueryDefinition(query)
+            .WithParameter("@type", SubmissionType)
+            .WithParameter("@sinceUtc", sinceUtc)
+            .WithParameter("@country", normalizedCountry);
+
+        for (var index = 0; index < normalizedZipCodes.Count; index++)
+        {
+            queryDefinition = queryDefinition.WithParameter(zipParameters[index], normalizedZipCodes[index]);
+        }
+
+        return await QueryAsync<NormalizedInterestFormSubmission>(
+            queryDefinition,
             cancellationToken);
     }
 
@@ -130,12 +164,10 @@ public sealed class CosmosApplicationRepository : IApplicationRepository
         const string query = """
             SELECT * FROM c
             WHERE c.Type = @type
-              AND c.IsActive = true
-              AND c.EffectiveFromUtc <= @asOfUtc
-              AND (NOT IS_DEFINED(c.EffectiveToUtc) OR IS_NULL(c.EffectiveToUtc) OR c.EffectiveToUtc > @asOfUtc)
+            ORDER BY c._ts DESC
             """;
 
-        return EffectiveDistrictsAsync(query, asOfUtc, cancellationToken);
+        return EffectiveDistrictsAsync(query, cancellationToken);
     }
 
     public async Task<ContactsForDistrict?> GetEffectiveDistrictContactByNameAsync(
@@ -144,35 +176,28 @@ public sealed class CosmosApplicationRepository : IApplicationRepository
         CancellationToken cancellationToken)
     {
         var contacts = await GetEffectiveDistrictContactsAsync(asOfUtc, cancellationToken);
-        return contacts.FirstOrDefault(contact => string.Equals(contact.DistrictName, districtName, StringComparison.OrdinalIgnoreCase));
+        return contacts.FirstOrDefault(contact => string.Equals(contact.District, districtName, StringComparison.OrdinalIgnoreCase));
     }
 
     public async Task<ContactsForCountry?> GetEffectiveCountryContactAsync(
-        string normalizedCountryName,
+        string normalizedCountry,
         DateTimeOffset asOfUtc,
         CancellationToken cancellationToken)
     {
         const string query = """
-            SELECT * FROM c
+            SELECT TOP 1 * FROM c
             WHERE c.Type = @type
-              AND LOWER(c.CountryName) = LOWER(@countryName)
-              AND c.IsActive = true
-              AND c.EffectiveFromUtc <= @asOfUtc
-              AND (NOT IS_DEFINED(c.EffectiveToUtc) OR IS_NULL(c.EffectiveToUtc) OR c.EffectiveToUtc > @asOfUtc)
+              AND LOWER(c.Country) = LOWER(@countryName)
+            ORDER BY c._ts DESC
             """;
 
         var contacts = await QueryAsync<ContactsForCountry>(
             new QueryDefinition(query)
                 .WithParameter("@type", CountryType)
-                .WithParameter("@countryName", normalizedCountryName)
-                .WithParameter("@asOfUtc", asOfUtc),
+                .WithParameter("@countryName", normalizedCountry),
             cancellationToken);
 
-        return contacts
-            .OrderByDescending(contact => contact.Version)
-            .ThenByDescending(contact => contact.EffectiveFromUtc)
-            .ThenByDescending(contact => contact.Id)
-            .FirstOrDefault();
+        return contacts.FirstOrDefault();
     }
 
     public async Task UpsertDistrictContactsAsync(
@@ -197,23 +222,18 @@ public sealed class CosmosApplicationRepository : IApplicationRepository
 
     private async Task<IReadOnlyList<ContactsForDistrict>> EffectiveDistrictsAsync(
         string query,
-        DateTimeOffset asOfUtc,
         CancellationToken cancellationToken)
     {
         var contacts = await QueryAsync<ContactsForDistrict>(
             new QueryDefinition(query)
-                .WithParameter("@type", DistrictType)
-                .WithParameter("@asOfUtc", asOfUtc),
+                .WithParameter("@type", DistrictType),
             cancellationToken);
 
         return contacts
-            .GroupBy(contact => contact.DistrictName, StringComparer.OrdinalIgnoreCase)
-            .Select(group => group
-                .OrderByDescending(contact => contact.Version)
-                .ThenByDescending(contact => contact.EffectiveFromUtc)
-                .ThenByDescending(contact => contact.Id)
-                .First())
-            .OrderBy(contact => contact.DistrictName, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(contact => $"{SubmissionNormalizer.NormalizeCountry(contact.Country)}:{contact.District}", StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .OrderBy(contact => contact.Country, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(contact => contact.District, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 
