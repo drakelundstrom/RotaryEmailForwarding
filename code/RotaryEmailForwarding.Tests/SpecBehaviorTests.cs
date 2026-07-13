@@ -471,6 +471,57 @@ public sealed class SpecBehaviorTests
     }
 
     [Fact]
+    public async Task Reporting_InterestFormsByDistrictQuarterIgnoresTestingDistrict321()
+    {
+        var repository = new InMemoryApplicationRepository();
+        await repository.UpsertDistrictContactsAsync(
+            [
+                new ContactsForDistrict
+                {
+                    Country = "usa",
+                    District = "District 1",
+                    EmailAddresses = ["one@example.com"],
+                    ZipCodes = ["12345"]
+                },
+                new ContactsForDistrict
+                {
+                    Country = "usa",
+                    District = "District 321",
+                    EmailAddresses = ["test@example.com"],
+                    ZipCodes = ["32100"]
+                }
+            ],
+            CancellationToken.None);
+
+        await repository.InsertSubmissionAsync(
+            WithCosmosTimestamp(SubmissionNormalizer.Normalize(
+                new InterestFormSubmissionRequest { CountryOfResidence = "United States", Zipcode = "12345" },
+                new DateTimeOffset(2026, 7, 2, 0, 0, 0, TimeSpan.Zero))),
+            CancellationToken.None);
+        await repository.InsertSubmissionAsync(
+            WithCosmosTimestamp(SubmissionNormalizer.Normalize(
+                new InterestFormSubmissionRequest { CountryOfResidence = "United States", Zipcode = "32100" },
+                new DateTimeOffset(2026, 7, 3, 0, 0, 0, TimeSpan.Zero))),
+            CancellationToken.None);
+        var routedTestingDistrictSubmission = WithCosmosTimestamp(SubmissionNormalizer.Normalize(
+            new InterestFormSubmissionRequest { CountryOfResidence = "United States", Zipcode = "99999" },
+            new DateTimeOffset(2026, 7, 4, 0, 0, 0, TimeSpan.Zero))) with
+        {
+            RoutedDistricts = ["321"]
+        };
+        await repository.InsertSubmissionAsync(routedTestingDistrictSubmission, CancellationToken.None);
+
+        var markdown = await new ReportingService(repository).GenerateInterestFormsByDistrictQuarterMarkdownAsync(
+            new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
+            CancellationToken.None);
+
+        Assert.Contains("| USA | District 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |", markdown);
+        Assert.DoesNotContain("| USA | District 321 |", markdown);
+        Assert.DoesNotContain("| USA | 321 |", markdown);
+        Assert.DoesNotContain("| USA | Other |", markdown);
+    }
+
+    [Fact]
     public async Task Reporting_InterestFormsByDistrictQuarterCountsOldAndNewSubmissionShapes()
     {
         var repository = new InMemoryApplicationRepository();

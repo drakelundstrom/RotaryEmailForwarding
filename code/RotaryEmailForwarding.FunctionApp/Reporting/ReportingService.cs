@@ -33,6 +33,7 @@ public sealed class ReportingService(IApplicationRepository repository)
     private const string Mexico = "Mexico";
     private const string OtherCountries = "Other countries";
     private const string OtherDistrict = "Other";
+    private const string TestingDistrict = "321";
 
     public async Task<IReadOnlyList<SubmissionsByMonth>> GenerateSubmissionsByMonthAsync(
         DateTimeOffset startUtc,
@@ -236,7 +237,9 @@ public sealed class ReportingService(IApplicationRepository repository)
             .ToList();
         if (routedDistricts.Count > 0)
         {
-            return routedDistricts;
+            return routedDistricts
+                .Where(district => !IsIgnoredQuarterlyReportDistrict(district))
+                .ToList();
         }
 
         var zipcode = SubmissionNormalizer.NormalizeZipcode(submission.Zipcode, normalizedCountry);
@@ -244,10 +247,23 @@ public sealed class ReportingService(IApplicationRepository repository)
             && districtLookup.TryGetValue(DistrictLookupKey(normalizedCountry, zipcode), out var districts)
             && districts.Count > 0)
         {
-            return districts;
+            return districts
+                .Where(district => !IsIgnoredQuarterlyReportDistrict(district))
+                .ToList();
         }
 
         return [OtherDistrict];
+    }
+
+    private static bool IsIgnoredQuarterlyReportDistrict(string district)
+    {
+        var normalized = district.Trim();
+        if (normalized.StartsWith("district", StringComparison.OrdinalIgnoreCase))
+        {
+            normalized = normalized["district".Length..].Trim();
+        }
+
+        return string.Equals(normalized, TestingDistrict, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string CountryGroup(string? country)
