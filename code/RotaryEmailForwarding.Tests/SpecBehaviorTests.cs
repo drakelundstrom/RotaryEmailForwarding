@@ -45,7 +45,6 @@ public sealed class SpecBehaviorTests
                 CountryOfResidence = "United States",
                 Zipcode = "44102-1234"
             },
-            """{"name":"Jordan Example"}""",
             "corr-1",
             CancellationToken.None);
 
@@ -88,7 +87,6 @@ public sealed class SpecBehaviorTests
                 ContactEmail = "jordan@example.com",
                 CountryOfResidence = "Mexico"
             },
-            "{}",
             "corr-2",
             CancellationToken.None);
 
@@ -151,7 +149,6 @@ public sealed class SpecBehaviorTests
                 CountryOfResidence = "United States",
                 Zipcode = "44102"
             },
-            "{}",
             "corr-support-student",
             CancellationToken.None);
 
@@ -169,7 +166,6 @@ public sealed class SpecBehaviorTests
                 CountryOfResidence = "United States",
                 Zipcode = "44102"
             },
-            "{}",
             "corr-support-rotarian",
             CancellationToken.None);
 

@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using Newtonsoft.Json;
 using RotaryEmailForwarding.FunctionApp.Domain;
@@ -15,21 +14,11 @@ public sealed record NormalizedInterestFormSubmission
 
     public string? SubmissionType { get; init; }
 
-    public bool? IsInterestedOutboundStudent { get; init; }
-
-    public bool? IsInterestedInHosting { get; init; }
-
-    public string? SubmissionQuestion { get; init; }
+    public string? OptionalSubmissionQuestion { get; init; }
 
     public string? Name { get; init; }
 
     public string? Age { get; init; }
-
-    public string? Gender { get; init; }
-
-    public string? Email { get; init; }
-
-    public string? Phone { get; init; }
 
     public string? StudentEmail { get; init; }
 
@@ -51,14 +40,6 @@ public sealed record NormalizedInterestFormSubmission
 
     public string? Zipcode { get; init; }
 
-    public string? CountryChoiceOne { get; init; }
-
-    public string? CountryChoiceTwo { get; init; }
-
-    public string? CountryChoiceThree { get; init; }
-
-    public string? CountryChoiceFour { get; init; }
-
     public required DateTimeOffset ReceivedOnUtc { get; init; }
 
     public DateTimeOffset? SentOnUtc { get; init; }
@@ -76,7 +57,4 @@ public sealed record NormalizedInterestFormSubmission
     public IReadOnlyList<string> RoutedDistricts { get; init; } = [];
 
     public string? RoutedCountry { get; init; }
-
-    public IReadOnlyDictionary<string, JsonElement> AdditionalFields { get; init; } =
-        new Dictionary<string, JsonElement>();
 }

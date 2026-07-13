@@ -1,3 +1,4 @@
+using System.Text.Json;
 using RotaryEmailForwarding.FunctionApp.Models;
 using RotaryEmailForwarding.FunctionApp.Domain;
 using RotaryEmailForwarding.FunctionApp.Services;
@@ -24,8 +25,8 @@ public sealed class SubmissionNormalizerTests
     [Theory]
     [InlineData("United States of America", "44102-1234", "usa", "44102")]
     [InlineData("Canada", "m5v 2t6", "canada", "M5V")]
-    [InlineData("The United Kingdom.", "SW1A 1AA", "uk", "SW1A 1AA")]
-    public void Normalize_AppliesLegacyCountryAndZipcodeCompatibilityRules(
+    [InlineData("Mexico", "01234", "mexico", "01234")]
+    public void Normalize_AppliesSupportedCountryAndZipcodeRules(
         string country,
         string zipcode,
         string expectedCountry,
@@ -41,6 +42,38 @@ public sealed class SubmissionNormalizerTests
 
         Assert.Equal(expectedCountry, normalized.CountryOfResidence);
         Assert.Equal(expectedZipcode, normalized.Zipcode);
+    }
+
+    [Fact]
+    public void Request_CollectsUnhandledFieldsWithoutAddingThemToNormalizedSubmission()
+    {
+        var request = JsonSerializer.Deserialize<InterestFormSubmissionRequest>(
+            """
+            {
+              "SubmissionType": "Student",
+              "Name": "Jordan Example",
+              "StudentEmail": "student@example.com",
+              "LegacyEmail": "legacy@example.com",
+              "ExtraProgramAnswer": "yes"
+            }
+            """,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        Assert.NotNull(request);
+        Assert.Equal(
+            ["ExtraProgramAnswer", "LegacyEmail"],
+            request.UnhandledFields!.Keys.OrderBy(key => key));
+
+        var normalized = SubmissionNormalizer.Normalize(request, DateTimeOffset.UtcNow);
+        var persistedPropertyNames = typeof(NormalizedInterestFormSubmission)
+            .GetProperties()
+            .Select(property => property.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        Assert.Equal("student@example.com", normalized.StudentEmail);
+        Assert.DoesNotContain("UnhandledFields", persistedPropertyNames);
+        Assert.DoesNotContain("LegacyEmail", persistedPropertyNames);
+        Assert.DoesNotContain("Email", persistedPropertyNames);
     }
 
     [Fact]
@@ -64,10 +97,12 @@ public sealed class SubmissionNormalizerTests
             DateTimeOffset.UtcNow);
 
         Assert.Equal("16", normalized.Age);
-        Assert.Equal("student@example.com", normalized.Email);
-        Assert.Equal("555-0100", normalized.Phone);
+        Assert.Equal("student@example.com", normalized.StudentEmail);
+        Assert.Equal("555-0100", normalized.StudentPhone);
         Assert.Equal("parent@example.com", normalized.ParentEmail);
-        Assert.Equal("Can I choose a country?", normalized.SubmissionQuestion);
+        Assert.Null(normalized.ContactEmail);
+        Assert.Null(normalized.ContactPhone);
+        Assert.Equal("Can I choose a country?", normalized.OptionalSubmissionQuestion);
     }
 
     [Fact]
@@ -86,7 +121,8 @@ public sealed class SubmissionNormalizerTests
             DateTimeOffset.UtcNow);
 
         Assert.Equal("15", normalized.Age);
-        Assert.Equal("parent-contact@example.com", normalized.Email);
-        Assert.Equal("555-0102", normalized.Phone);
+        Assert.Null(normalized.StudentEmail);
+        Assert.Equal("parent-contact@example.com", normalized.ContactEmail);
+        Assert.Equal("555-0102", normalized.ContactPhone);
     }
 }

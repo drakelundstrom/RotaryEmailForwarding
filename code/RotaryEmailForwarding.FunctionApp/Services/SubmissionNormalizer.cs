@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text.Json;
 using RotaryEmailForwarding.FunctionApp.Models;
 
 namespace RotaryEmailForwarding.FunctionApp.Services;
@@ -21,9 +20,7 @@ public static class SubmissionNormalizer
         ["us"] = "usa",
         ["unitedstates"] = "usa",
         ["america"] = "usa",
-        ["britian"] = "uk",
-        ["unitedkingdom"] = "uk",
-        ["england"] = "uk"
+        ["mx"] = "mexico"
     };
 
     public static NormalizedInterestFormSubmission Normalize(
@@ -33,43 +30,25 @@ public static class SubmissionNormalizer
         var normalizedCountry = NormalizeCountry(request.CountryOfResidence);
         var normalizedZipcode = NormalizeZipcode(request.Zipcode, normalizedCountry);
         var submitterType = GetSubmitterType(request.SubmissionType);
-        var studentEmail = TrimToNull(request.StudentEmail);
-        var studentPhone = TrimToNull(request.StudentPhone);
-        var parentEmail = TrimToNull(request.ParentEmail);
-        var parentPhone = TrimToNull(request.ParentPhone);
-        var contactEmail = TrimToNull(request.ContactEmail);
-        var contactPhone = TrimToNull(request.ContactPhone);
-        var legacyEmail = TrimToNull(request.Email);
-        var legacyPhone = TrimToNull(request.Phone);
 
         return new NormalizedInterestFormSubmission
         {
             Id = Guid.NewGuid().ToString("D", CultureInfo.InvariantCulture),
             SubmissionType = TrimToNull(request.SubmissionType),
-            IsInterestedOutboundStudent = NormalizeBoolean(request.IsInterestedOutboundStudent),
-            IsInterestedInHosting = NormalizeBoolean(request.IsInterestedInHosting),
-            SubmissionQuestion = TrimToNull(request.OptionalSubmissionQuestion) ?? TrimToNull(request.SubmissionQuestion),
+            OptionalSubmissionQuestion = TrimToNull(request.OptionalSubmissionQuestion),
             Name = TrimToNull(request.Name),
             Age = GetStudentAge(request, submitterType),
-            Gender = TrimToNull(request.Gender),
-            Email = GetPrimaryEmail(submitterType, request.SubmissionType, studentEmail, contactEmail, legacyEmail),
-            Phone = GetPrimaryPhone(submitterType, request.SubmissionType, studentPhone, contactPhone, legacyPhone),
-            StudentEmail = studentEmail,
-            StudentPhone = studentPhone,
-            ParentEmail = parentEmail,
-            ParentPhone = parentPhone,
-            ContactEmail = contactEmail,
-            ContactPhone = contactPhone,
+            StudentEmail = KeepForStudent(request.StudentEmail, submitterType),
+            StudentPhone = KeepForStudent(request.StudentPhone, submitterType),
+            ParentEmail = KeepForStudent(request.ParentEmail, submitterType),
+            ParentPhone = KeepForStudent(request.ParentPhone, submitterType),
+            ContactEmail = KeepForNonStudent(request.ContactEmail, submitterType),
+            ContactPhone = KeepForNonStudent(request.ContactPhone, submitterType),
             CountryOfResidence = normalizedCountry,
             State = TrimToNull(request.State),
             City = TrimToNull(request.City),
             Zipcode = normalizedZipcode,
-            CountryChoiceOne = TrimToNull(request.CountryChoiceOne),
-            CountryChoiceTwo = TrimToNull(request.CountryChoiceTwo),
-            CountryChoiceThree = TrimToNull(request.CountryChoiceThree),
-            CountryChoiceFour = TrimToNull(request.CountryChoiceFour),
-            ReceivedOnUtc = receivedOnUtc,
-            AdditionalFields = request.AdditionalFields ?? new Dictionary<string, JsonElement>()
+            ReceivedOnUtc = receivedOnUtc
         };
     }
 
@@ -140,18 +119,6 @@ public static class SubmissionNormalizer
         };
     }
 
-    private static bool? NormalizeBoolean(string? value)
-    {
-        var normalized = TrimToNull(value)?.ToLowerInvariant();
-
-        return normalized switch
-        {
-            "true" or "yes" or "y" or "1" or "on" => true,
-            "false" or "no" or "n" or "0" or "off" => false,
-            _ => null
-        };
-    }
-
     private static string? TrimToNull(string? value)
     {
         var trimmed = value?.Trim();
@@ -172,36 +139,18 @@ public static class SubmissionNormalizer
         };
     }
 
-    private static string? GetPrimaryEmail(
-        InterestFormSubmitterType submitterType,
-        string? submissionType,
-        string? studentEmail,
-        string? contactEmail,
-        string? legacyEmail)
+    private static string? KeepForStudent(string? value, InterestFormSubmitterType submitterType)
     {
-        return submitterType switch
-        {
-            InterestFormSubmitterType.Student => studentEmail ?? legacyEmail,
-            InterestFormSubmitterType.Unknown when string.IsNullOrWhiteSpace(submissionType) =>
-                legacyEmail ?? contactEmail ?? studentEmail,
-            _ => contactEmail ?? legacyEmail
-        };
+        return submitterType == InterestFormSubmitterType.Student
+            ? TrimToNull(value)
+            : null;
     }
 
-    private static string? GetPrimaryPhone(
-        InterestFormSubmitterType submitterType,
-        string? submissionType,
-        string? studentPhone,
-        string? contactPhone,
-        string? legacyPhone)
+    private static string? KeepForNonStudent(string? value, InterestFormSubmitterType submitterType)
     {
-        return submitterType switch
-        {
-            InterestFormSubmitterType.Student => studentPhone ?? legacyPhone,
-            InterestFormSubmitterType.Unknown when string.IsNullOrWhiteSpace(submissionType) =>
-                legacyPhone ?? contactPhone ?? studentPhone,
-            _ => contactPhone ?? legacyPhone
-        };
+        return submitterType == InterestFormSubmitterType.Student
+            ? null
+            : TrimToNull(value);
     }
 
     private static string? NormalizeOptionKey(string? value)

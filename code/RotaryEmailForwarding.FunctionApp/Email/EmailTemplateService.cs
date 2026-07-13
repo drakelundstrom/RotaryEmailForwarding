@@ -11,8 +11,7 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
 {
     public IReadOnlyList<OutboundEmailMessage> BuildMessages(
         NormalizedInterestFormSubmission submission,
-        SubmissionRoute route,
-        string rawSubmissionJson)
+        SubmissionRoute route)
     {
         var message = route.Kind switch
         {
@@ -45,14 +44,14 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
 
         if (submitterType == InterestFormSubmitterType.Student)
         {
-            AddEmail(recipients, submission.StudentEmail ?? submission.Email);
+            AddEmail(recipients, submission.StudentEmail);
             AddEmail(recipients, submission.ParentEmail);
             return recipients
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }
 
-        AddEmail(recipients, submission.ContactEmail ?? submission.Email);
+        AddEmail(recipients, submission.ContactEmail);
         return recipients
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -203,15 +202,15 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
         var submitterType = SubmissionNormalizer.GetSubmitterType(submission.SubmissionType);
         if (submitterType == InterestFormSubmitterType.Student)
         {
-            lines.Add($"Student email: {UnknownIfBlank(submission.StudentEmail ?? submission.Email)}");
-            lines.Add($"Student phone: {UnknownIfBlank(submission.StudentPhone ?? submission.Phone)}");
+            lines.Add($"Student email: {UnknownIfBlank(submission.StudentEmail)}");
+            lines.Add($"Student phone: {UnknownIfBlank(submission.StudentPhone)}");
             lines.Add($"Parent email: {UnknownIfBlank(submission.ParentEmail)}");
             lines.Add($"Parent phone: {UnknownIfBlank(submission.ParentPhone)}");
         }
         else
         {
-            lines.Add($"Contact email: {UnknownIfBlank(submission.ContactEmail ?? submission.Email)}");
-            lines.Add($"Contact phone: {UnknownIfBlank(submission.ContactPhone ?? submission.Phone)}");
+            lines.Add($"Contact email: {UnknownIfBlank(submission.ContactEmail)}");
+            lines.Add($"Contact phone: {UnknownIfBlank(submission.ContactPhone)}");
         }
 
         lines.AddRange(
@@ -220,24 +219,8 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
             $"State: {UnknownIfBlank(submission.State)}",
             $"City: {UnknownIfBlank(submission.City)}",
             $"Zipcode/postal code: {UnknownIfBlank(submission.Zipcode)}",
-            $"Question: {UnknownIfBlank(submission.SubmissionQuestion)}"
+            $"Question: {UnknownIfBlank(submission.OptionalSubmissionQuestion)}"
         ]);
-
-        if (submission.IsInterestedOutboundStudent.HasValue)
-        {
-            lines.Add($"Interested in going on exchange: {BoolToOriginalText(submission.IsInterestedOutboundStudent)}");
-        }
-
-        if (submission.IsInterestedInHosting.HasValue)
-        {
-            lines.Add($"Interested in hosting: {BoolToOriginalText(submission.IsInterestedInHosting)}");
-        }
-
-        AddOptionalLine(lines, "Gender", submission.Gender);
-        AddOptionalLine(lines, "Country choice one", submission.CountryChoiceOne);
-        AddOptionalLine(lines, "Country choice two", submission.CountryChoiceTwo);
-        AddOptionalLine(lines, "Country choice three", submission.CountryChoiceThree);
-        AddOptionalLine(lines, "Country choice four", submission.CountryChoiceFour);
 
         return string.Join(Environment.NewLine, lines);
     }
@@ -259,26 +242,8 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
         };
     }
 
-    private static void AddOptionalLine(List<string> lines, string label, string? value)
-    {
-        if (!string.IsNullOrWhiteSpace(value))
-        {
-            lines.Add($"{label}: {value.Trim()}");
-        }
-    }
-
     private static string UnknownIfBlank(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? "Unknown" : value.Trim();
-    }
-
-    private static string BoolToOriginalText(bool? value)
-    {
-        return value switch
-        {
-            true => "yes",
-            false => "no",
-            _ => "Unknown"
-        };
     }
 }

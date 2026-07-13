@@ -26,7 +26,6 @@ public sealed class SubmissionWorkflow(
 {
     public async Task<SubmissionWorkflowResult> ProcessAsync(
         InterestFormSubmissionRequest request,
-        string rawSubmissionJson,
         string correlationId,
         CancellationToken cancellationToken)
     {
@@ -49,7 +48,7 @@ public sealed class SubmissionWorkflow(
             RoutedCountry = route.CountryContact?.Country
         };
 
-        var messages = templateService.BuildMessages(submission, route, rawSubmissionJson);
+        var messages = templateService.BuildMessages(submission, route);
         if (EmailTemplateService.BuildInterestedPartyRecipients(submission).Count == 0)
         {
             submission = submission with
