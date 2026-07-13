@@ -38,8 +38,10 @@ public sealed class SpecBehaviorTests
         var result = await workflow.ProcessAsync(
             new InterestFormSubmissionRequest
             {
+                SubmissionType = "Student",
                 Name = "Jordan Example",
-                Email = "jordan@example.com",
+                StudentEmail = "jordan@example.com",
+                ParentEmail = "parent@example.com",
                 CountryOfResidence = "United States",
                 Zipcode = "44102-1234"
             },
@@ -50,7 +52,13 @@ public sealed class SpecBehaviorTests
         Assert.Equal(EmailDeliveryStatus.Sent, result.Submission.EmailDeliveryStatus);
         Assert.NotNull(result.Submission.SentOnUtc);
         Assert.Equal(["District 6630"], result.Submission.RoutedDistricts);
-        Assert.Equal(2, sender.SentMessages.Count);
+        var message = Assert.Single(sender.SentMessages);
+        Assert.Equal(
+            ["rep@example.com", "jordan@example.com", "parent@example.com"],
+            message.Recipients);
+        Assert.Contains(
+            "We are reaching out to connect you with our local coordinators in Rotary District 6630.",
+            message.Body);
     }
 
     [Fact]
@@ -61,7 +69,7 @@ public sealed class SpecBehaviorTests
             [
                 new ContactsForCountry
                 {
-                    Country = "france",
+                    Country = "mexico",
                     EmailAddresses = ["country@example.com"],
                     IsCertified = true
                 }
@@ -77,8 +85,8 @@ public sealed class SpecBehaviorTests
             new InterestFormSubmissionRequest
             {
                 Name = "Jordan Example",
-                Email = "jordan@example.com",
-                CountryOfResidence = "France"
+                ContactEmail = "jordan@example.com",
+                CountryOfResidence = "Mexico"
             },
             "{}",
             "corr-2",
@@ -90,14 +98,14 @@ public sealed class SpecBehaviorTests
     }
 
     [Fact]
-    public async Task Routing_UncertifiedCountryUsesRejectionPath()
+    public async Task Routing_UncertifiedMexicoUsesManualReviewPath()
     {
         var repository = new InMemoryApplicationRepository();
         await repository.UpsertCountryContactsAsync(
             [
                 new ContactsForCountry
                 {
-                    Country = "germany",
+                    Country = "mexico",
                     IsCertified = false
                 }
             ],
@@ -107,13 +115,66 @@ public sealed class SpecBehaviorTests
             SubmissionNormalizer.Normalize(
                 new InterestFormSubmissionRequest
                 {
-                    CountryOfResidence = "Germany",
-                    Email = "student@example.com"
+                    CountryOfResidence = "Mexico",
+                    ContactEmail = "student@example.com"
                 },
                 Now),
             CancellationToken.None);
 
         Assert.Equal(SubmissionRouteKind.UncertifiedCountry, route.Kind);
+    }
+
+    [Fact]
+    public async Task Workflow_CopiesSupportOnlyForRotarianAndOtherSubmissions()
+    {
+        var repository = new InMemoryApplicationRepository();
+        await repository.UpsertDistrictContactsAsync(
+            [
+                new ContactsForDistrict
+                {
+                    Country = "usa",
+                    District = "6630",
+                    EmailAddresses = ["rep@example.com"],
+                    ZipCodes = ["44102"]
+                }
+            ],
+            CancellationToken.None);
+
+        var studentSender = new FakeEmailSender();
+        var studentWorkflow = BuildWorkflow(repository, studentSender, supportEmail: "support@example.com");
+        await studentWorkflow.ProcessAsync(
+            new InterestFormSubmissionRequest
+            {
+                SubmissionType = "Student",
+                Name = "Student Example",
+                StudentEmail = "student@example.com",
+                CountryOfResidence = "United States",
+                Zipcode = "44102"
+            },
+            "{}",
+            "corr-support-student",
+            CancellationToken.None);
+
+        var studentMessage = Assert.Single(studentSender.SentMessages);
+        Assert.DoesNotContain("support@example.com", studentMessage.Recipients);
+
+        var rotarianSender = new FakeEmailSender();
+        var rotarianWorkflow = BuildWorkflow(repository, rotarianSender, supportEmail: "support@example.com");
+        await rotarianWorkflow.ProcessAsync(
+            new InterestFormSubmissionRequest
+            {
+                SubmissionType = "Rotarian",
+                Name = "Rotarian Example",
+                ContactEmail = "rotarian@example.com",
+                CountryOfResidence = "United States",
+                Zipcode = "44102"
+            },
+            "{}",
+            "corr-support-rotarian",
+            CancellationToken.None);
+
+        var rotarianMessage = Assert.Single(rotarianSender.SentMessages);
+        Assert.Contains("support@example.com", rotarianMessage.Recipients);
     }
 
     [Fact]
@@ -332,13 +393,17 @@ public sealed class SpecBehaviorTests
         Assert.NotEqual(TimeZoneInfo.Utc.Id, timeZone.Id);
     }
 
-    private static SubmissionWorkflow BuildWorkflow(InMemoryApplicationRepository repository, FakeEmailSender sender)
+    private static SubmissionWorkflow BuildWorkflow(
+        InMemoryApplicationRepository repository,
+        FakeEmailSender sender,
+        string supportEmail = "")
     {
         var clock = new FakeClock(Now);
         var appConfiguration = new AppConfiguration
         {
             AppEnvironment = "test",
             SendingEmailAddress = "operator@example.com",
+            SupportEmail = supportEmail,
             NonProductionSafeRecipient = "sink@example.com"
         };
 

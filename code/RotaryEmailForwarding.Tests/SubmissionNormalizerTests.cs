@@ -42,4 +42,51 @@ public sealed class SubmissionNormalizerTests
         Assert.Equal(expectedCountry, normalized.CountryOfResidence);
         Assert.Equal(expectedZipcode, normalized.Zipcode);
     }
+
+    [Fact]
+    public void Normalize_StudentSubmissionUsesStudentAndParentContactFields()
+    {
+        var normalized = SubmissionNormalizer.Normalize(
+            new InterestFormSubmissionRequest
+            {
+                SubmissionType = "Student",
+                Name = "Jordan Example",
+                Age = "16",
+                ParentEnteredAge = "15",
+                StudentEmail = "student@example.com",
+                StudentPhone = "555-0100",
+                ParentEmail = "parent@example.com",
+                ParentPhone = "555-0101",
+                ContactEmail = "contact@example.com",
+                ContactPhone = "555-0102",
+                OptionalSubmissionQuestion = "Can I choose a country?"
+            },
+            DateTimeOffset.UtcNow);
+
+        Assert.Equal("16", normalized.Age);
+        Assert.Equal("student@example.com", normalized.Email);
+        Assert.Equal("555-0100", normalized.Phone);
+        Assert.Equal("parent@example.com", normalized.ParentEmail);
+        Assert.Equal("Can I choose a country?", normalized.SubmissionQuestion);
+    }
+
+    [Fact]
+    public void Normalize_ParentSubmissionUsesParentEnteredAgeAndGenericContactFields()
+    {
+        var normalized = SubmissionNormalizer.Normalize(
+            new InterestFormSubmissionRequest
+            {
+                SubmissionType = "Parent",
+                Age = "16",
+                ParentEnteredAge = "15",
+                StudentEmail = "student@example.com",
+                ContactEmail = "parent-contact@example.com",
+                ContactPhone = "555-0102"
+            },
+            DateTimeOffset.UtcNow);
+
+        Assert.Equal("15", normalized.Age);
+        Assert.Equal("parent-contact@example.com", normalized.Email);
+        Assert.Equal("555-0102", normalized.Phone);
+    }
 }

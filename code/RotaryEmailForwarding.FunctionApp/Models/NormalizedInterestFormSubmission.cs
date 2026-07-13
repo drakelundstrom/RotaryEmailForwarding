@@ -13,6 +13,8 @@ public sealed record NormalizedInterestFormSubmission
 
     public string Type { get; init; } = "InterestFormSubmission";
 
+    public string? SubmissionType { get; init; }
+
     public bool? IsInterestedOutboundStudent { get; init; }
 
     public bool? IsInterestedInHosting { get; init; }
@@ -28,6 +30,18 @@ public sealed record NormalizedInterestFormSubmission
     public string? Email { get; init; }
 
     public string? Phone { get; init; }
+
+    public string? StudentEmail { get; init; }
+
+    public string? StudentPhone { get; init; }
+
+    public string? ParentEmail { get; init; }
+
+    public string? ParentPhone { get; init; }
+
+    public string? ContactEmail { get; init; }
+
+    public string? ContactPhone { get; init; }
 
     public string? CountryOfResidence { get; init; }
 

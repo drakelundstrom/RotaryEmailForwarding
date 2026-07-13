@@ -50,12 +50,12 @@ public sealed class SubmissionWorkflow(
         };
 
         var messages = templateService.BuildMessages(submission, route, rawSubmissionJson);
-        if (!EmailAddressUtility.IsUsable(submission.Email))
+        if (EmailTemplateService.BuildInterestedPartyRecipients(submission).Count == 0)
         {
             submission = submission with
             {
                 Errors = submission.Errors
-                    .Append("Submitter email missing or unusable; submitter-facing email skipped")
+                    .Append("Interested party email missing or unusable; they were not included on the outbound email")
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList()
             };

@@ -3,6 +3,7 @@ using RotaryEmailForwarding.FunctionApp.Configuration;
 using RotaryEmailForwarding.FunctionApp.Domain;
 using RotaryEmailForwarding.FunctionApp.Models;
 using RotaryEmailForwarding.FunctionApp.Routing;
+using RotaryEmailForwarding.FunctionApp.Services;
 
 namespace RotaryEmailForwarding.FunctionApp.Email;
 
@@ -13,31 +14,15 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
         SubmissionRoute route,
         string rawSubmissionJson)
     {
-        var messages = new List<OutboundEmailMessage>();
-
-        switch (route.Kind)
+        var message = route.Kind switch
         {
-            case SubmissionRouteKind.District:
-                messages.Add(BuildDistrictRepresentativeMessage(submission, route));
-                AddSubmitterMessage(messages, BuildConfirmationMessage(submission, route));
-                break;
+            SubmissionRouteKind.District => BuildDistrictForwardingMessage(submission, route),
+            SubmissionRouteKind.Country => BuildCountryForwardingMessage(submission, route),
+            SubmissionRouteKind.UncertifiedCountry => BuildManualRoutingMessage(submission, route),
+            _ => BuildManualRoutingMessage(submission, route)
+        };
 
-            case SubmissionRouteKind.Country:
-                messages.Add(BuildCountryRepresentativeMessage(submission, route));
-                AddSubmitterMessage(messages, BuildConfirmationMessage(submission, route));
-                break;
-
-            case SubmissionRouteKind.UncertifiedCountry:
-                AddSubmitterMessage(messages, BuildRejectionMessage(submission, route));
-                break;
-
-            case SubmissionRouteKind.Fallback:
-                messages.Add(BuildOperatorFallbackMessage(submission, route, rawSubmissionJson));
-                AddSubmitterMessage(messages, BuildConfirmationMessage(submission, route));
-                break;
-        }
-
-        return messages;
+        return [message];
     }
 
     public OutboundEmailMessage BuildOperatorFailureMessage(
@@ -53,136 +38,208 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
             $"Correlation ID: {correlationId}{Environment.NewLine}{Environment.NewLine}{failureSummary}{Environment.NewLine}{Environment.NewLine}{rawSubmissionJson}");
     }
 
-    private OutboundEmailMessage BuildDistrictRepresentativeMessage(
+    public static IReadOnlyList<string> BuildInterestedPartyRecipients(NormalizedInterestFormSubmission submission)
+    {
+        var recipients = new List<string>();
+        var submitterType = SubmissionNormalizer.GetSubmitterType(submission.SubmissionType);
+
+        if (submitterType == InterestFormSubmitterType.Student)
+        {
+            AddEmail(recipients, submission.StudentEmail ?? submission.Email);
+            AddEmail(recipients, submission.ParentEmail);
+            return recipients
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        AddEmail(recipients, submission.ContactEmail ?? submission.Email);
+        return recipients
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private OutboundEmailMessage BuildDistrictForwardingMessage(
         NormalizedInterestFormSubmission submission,
         SubmissionRoute route)
     {
-        var recipients = route.DistrictContacts
-            .SelectMany(contact => contact.EmailAddresses)
-            .Where(email => !string.IsNullOrWhiteSpace(email))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var recipients = BuildRecipients(
+            route.DistrictContacts.SelectMany(contact => contact.EmailAddresses),
+            BuildInterestedPartyRecipients(submission),
+            ShouldCopySupport(submission) ? [configuration.SupportEmail] : []);
 
-        var districtNames = string.Join(", ", route.DistrictContacts.Select(contact => contact.District));
-        var uncertainty = route.HasMultipleDistrictMatches
-            ? $"{Environment.NewLine}The system is not sure which district applies, so this was sent to all matching districts: {districtNames}.{Environment.NewLine}"
-            : string.Empty;
+        var bodyIntro = route.HasMultipleDistrictMatches
+            ? BuildMultipleDistrictIntro(route)
+            : $"We are reaching out to connect you with our local coordinators in {FormatDistrictForSentence(route.DistrictContacts.FirstOrDefault()?.District)}.";
 
         return new OutboundEmailMessage(
             $"district:{submission.Id}",
             OutboundEmailMessageType.DistrictRepresentative,
             recipients,
-            $"Interest form submission from {UnknownIfBlank(submission.Name)}",
-            $"{uncertainty}{StudentInformationBlock(submission)}");
+            $"Rotary Youth Exchange interest from {UnknownIfBlank(submission.Name)}",
+            BuildSharedBody(bodyIntro, submission));
     }
 
-    private OutboundEmailMessage BuildCountryRepresentativeMessage(
+    private OutboundEmailMessage BuildCountryForwardingMessage(
         NormalizedInterestFormSubmission submission,
         SubmissionRoute route)
     {
-        var recipients = route.CountryContact?.EmailAddresses
-            .Where(email => !string.IsNullOrWhiteSpace(email))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList() ?? [];
+        var recipients = BuildRecipients(
+            route.CountryContact?.EmailAddresses ?? [],
+            BuildInterestedPartyRecipients(submission),
+            ShouldCopySupport(submission) ? [configuration.SupportEmail] : []);
+
+        var country = route.CountryContact?.Country ?? submission.CountryOfResidence;
 
         return new OutboundEmailMessage(
             $"country:{submission.Id}",
             OutboundEmailMessageType.CountryRepresentative,
             recipients,
-            $"Interest form submission from {UnknownIfBlank(submission.Name)}",
-            StudentInformationBlock(submission));
+            $"Rotary Youth Exchange interest from {UnknownIfBlank(submission.Name)}",
+            BuildSharedBody(
+                $"We are reaching out to connect you with our local coordinators for {GetDisplayCountryName(country)}.",
+                submission));
     }
 
-    private OutboundEmailMessage? BuildConfirmationMessage(
+    private OutboundEmailMessage BuildManualRoutingMessage(
         NormalizedInterestFormSubmission submission,
         SubmissionRoute route)
     {
-        if (!EmailAddressUtility.IsUsable(submission.Email))
-        {
-            return null;
-        }
+        var recipients = BuildRecipients(
+            [configuration.OperatorEmail],
+            BuildInterestedPartyRecipients(submission),
+            ShouldCopySupport(submission) ? [configuration.SupportEmail] : []);
 
-        var routeSummary = route.Kind switch
-        {
-            SubmissionRouteKind.District when route.DistrictContacts.Count > 0 =>
-                $"A representative from district {string.Join(", ", route.DistrictContacts.Select(contact => contact.District))} will follow up.",
-            SubmissionRouteKind.Country when route.CountryContact is not null =>
-                $"A representative for {GetDisplayCountryName(route.CountryContact.Country)} will follow up.",
-            _ => "A representative will follow up."
-        };
-
-        return new OutboundEmailMessage(
-            $"submitter-confirmation:{submission.Id}",
-            OutboundEmailMessageType.SubmitterConfirmation,
-            [submission.Email!.Trim()],
-            "Thank you for your interest in Rotary Youth Exchange",
-            $"Thank you for contacting Study Abroad Scholarships.{Environment.NewLine}{routeSummary}{Environment.NewLine}{Environment.NewLine}{StudentInformationBlock(submission)}");
-    }
-
-    private OutboundEmailMessage? BuildRejectionMessage(
-        NormalizedInterestFormSubmission submission,
-        SubmissionRoute route)
-    {
-        if (!EmailAddressUtility.IsUsable(submission.Email))
-        {
-            return null;
-        }
-
-        var countryName = route.CountryContact?.Country is not null
-            ? GetDisplayCountryName(route.CountryContact.Country)
-            : UnknownIfBlank(submission.CountryOfResidence);
-
-        return new OutboundEmailMessage(
-            $"submitter-rejection:{submission.Id}",
-            OutboundEmailMessageType.SubmitterRejection,
-            [submission.Email!.Trim()],
-            "Rotary Youth Exchange availability",
-            $"Thank you for your interest in Rotary Youth Exchange. At this time, {countryName} is not certified for this program through this site. Please contact {configuration.SupportEmail} with questions.{Environment.NewLine}{Environment.NewLine}{StudentInformationBlock(submission)}");
-    }
-
-    private OutboundEmailMessage BuildOperatorFallbackMessage(
-        NormalizedInterestFormSubmission submission,
-        SubmissionRoute route,
-        string rawSubmissionJson)
-    {
         return new OutboundEmailMessage(
             $"operator-fallback:{submission.Id}",
             OutboundEmailMessageType.OperatorFallback,
-            [configuration.OperatorEmail],
-            "Interest form submission needs manual routing",
-            $"Routing errors: {string.Join("; ", route.Errors)}{Environment.NewLine}{Environment.NewLine}{StudentInformationBlock(submission)}{Environment.NewLine}{Environment.NewLine}Raw submission JSON:{Environment.NewLine}{rawSubmissionJson}");
+            recipients,
+            "Rotary Youth Exchange interest needs routing review",
+            BuildSharedBody(
+                "Our automated system was not able to resolve where you should be forwarded, but an admin will take a look and should have this resolved in a week or less. In the meantime, feel free to reach out to your local Rotary club!",
+                submission,
+                route.Errors));
     }
 
-    private static void AddSubmitterMessage(List<OutboundEmailMessage> messages, OutboundEmailMessage? message)
+    private bool ShouldCopySupport(NormalizedInterestFormSubmission submission)
     {
-        if (message is not null)
+        var submitterType = SubmissionNormalizer.GetSubmitterType(submission.SubmissionType);
+        return submitterType is InterestFormSubmitterType.Rotarian or InterestFormSubmitterType.Other;
+    }
+
+    private static IReadOnlyList<string> BuildRecipients(params IEnumerable<string?>[] recipientGroups)
+    {
+        var recipients = new List<string>();
+        foreach (var group in recipientGroups)
         {
-            messages.Add(message);
+            foreach (var email in group)
+            {
+                AddEmail(recipients, email);
+            }
+        }
+
+        return recipients
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static void AddEmail(List<string> recipients, string? email)
+    {
+        if (EmailAddressUtility.IsUsable(email))
+        {
+            recipients.Add(email!.Trim());
         }
     }
 
-    private static string StudentInformationBlock(NormalizedInterestFormSubmission submission)
+    private static string BuildMultipleDistrictIntro(SubmissionRoute route)
     {
-        return string.Join(Environment.NewLine, new[]
+        var districtCount = route.DistrictContacts.Count;
+        var districtNames = string.Join(", ", route.DistrictContacts.Select(contact => contact.District));
+
+        var included = districtCount == 2 ? "both" : "all matching districts";
+        return $"You are on the border of {districtCount.ToString(CultureInfo.InvariantCulture)} Rotary districts, so we have included {included} to make sure the right person gets in contact.{Environment.NewLine}Districts included: {districtNames}.";
+    }
+
+    private static string FormatDistrictForSentence(string? district)
+    {
+        var trimmed = UnknownIfBlank(district);
+        return trimmed.StartsWith("district ", StringComparison.OrdinalIgnoreCase)
+            ? $"Rotary {trimmed}"
+            : $"Rotary District {trimmed}";
+    }
+
+    private static string BuildSharedBody(
+        string intro,
+        NormalizedInterestFormSubmission submission,
+        IReadOnlyList<string>? routingErrors = null)
+    {
+        var sections = new List<string>
         {
-            "Student information:",
+            "Hello,",
+            string.Empty,
+            intro,
+            string.Empty,
+            "Here are the details from the interest form:",
+            SubmissionInformationBlock(submission)
+        };
+
+        if (routingErrors?.Count > 0)
+        {
+            sections.Add(string.Empty);
+            sections.Add($"Routing notes: {string.Join("; ", routingErrors)}");
+        }
+
+        return string.Join(Environment.NewLine, sections);
+    }
+
+    private static string SubmissionInformationBlock(NormalizedInterestFormSubmission submission)
+    {
+        var lines = new List<string>
+        {
+            $"Who submitted: {UnknownIfBlank(submission.SubmissionType)}",
             $"Name: {UnknownIfBlank(submission.Name)}",
-            $"Interested in going on exchange: {BoolToOriginalText(submission.IsInterestedOutboundStudent)}",
-            $"Interested in hosting: {BoolToOriginalText(submission.IsInterestedInHosting)}",
-            $"Age: {UnknownIfBlank(submission.Age)}",
-            $"Gender: {UnknownIfBlank(submission.Gender)}",
-            $"Email: {UnknownIfBlank(submission.Email)}",
-            $"Phone: {UnknownIfBlank(submission.Phone)}",
-            $"Country of residence: {UnknownIfBlank(submission.CountryOfResidence)}",
+            $"Student age: {UnknownIfBlank(submission.Age)}"
+        };
+
+        var submitterType = SubmissionNormalizer.GetSubmitterType(submission.SubmissionType);
+        if (submitterType == InterestFormSubmitterType.Student)
+        {
+            lines.Add($"Student email: {UnknownIfBlank(submission.StudentEmail ?? submission.Email)}");
+            lines.Add($"Student phone: {UnknownIfBlank(submission.StudentPhone ?? submission.Phone)}");
+            lines.Add($"Parent email: {UnknownIfBlank(submission.ParentEmail)}");
+            lines.Add($"Parent phone: {UnknownIfBlank(submission.ParentPhone)}");
+        }
+        else
+        {
+            lines.Add($"Contact email: {UnknownIfBlank(submission.ContactEmail ?? submission.Email)}");
+            lines.Add($"Contact phone: {UnknownIfBlank(submission.ContactPhone ?? submission.Phone)}");
+        }
+
+        lines.AddRange(
+        [
+            $"Country of residence: {GetDisplayCountryName(submission.CountryOfResidence)}",
             $"State: {UnknownIfBlank(submission.State)}",
             $"City: {UnknownIfBlank(submission.City)}",
             $"Zipcode/postal code: {UnknownIfBlank(submission.Zipcode)}",
-            $"Country choice one: {UnknownIfBlank(submission.CountryChoiceOne)}",
-            $"Country choice two: {UnknownIfBlank(submission.CountryChoiceTwo)}",
-            $"Country choice three: {UnknownIfBlank(submission.CountryChoiceThree)}",
-            $"Country choice four: {UnknownIfBlank(submission.CountryChoiceFour)}",
             $"Question: {UnknownIfBlank(submission.SubmissionQuestion)}"
-        });
+        ]);
+
+        if (submission.IsInterestedOutboundStudent.HasValue)
+        {
+            lines.Add($"Interested in going on exchange: {BoolToOriginalText(submission.IsInterestedOutboundStudent)}");
+        }
+
+        if (submission.IsInterestedInHosting.HasValue)
+        {
+            lines.Add($"Interested in hosting: {BoolToOriginalText(submission.IsInterestedInHosting)}");
+        }
+
+        AddOptionalLine(lines, "Gender", submission.Gender);
+        AddOptionalLine(lines, "Country choice one", submission.CountryChoiceOne);
+        AddOptionalLine(lines, "Country choice two", submission.CountryChoiceTwo);
+        AddOptionalLine(lines, "Country choice three", submission.CountryChoiceThree);
+        AddOptionalLine(lines, "Country choice four", submission.CountryChoiceFour);
+
+        return string.Join(Environment.NewLine, lines);
     }
 
     private static string GetDisplayCountryName(string? country)
@@ -192,7 +249,22 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
             return "Unknown";
         }
 
-        return CultureInfo.CurrentCulture.TextInfo.ToTitleCase(country.Trim().ToLowerInvariant());
+        var normalized = SubmissionNormalizer.NormalizeCountry(country);
+        return normalized switch
+        {
+            "usa" => "USA",
+            "canada" => "Canada",
+            "mexico" => "Mexico",
+            _ => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(country.Trim().ToLowerInvariant())
+        };
+    }
+
+    private static void AddOptionalLine(List<string> lines, string label, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            lines.Add($"{label}: {value.Trim()}");
+        }
     }
 
     private static string UnknownIfBlank(string? value)
