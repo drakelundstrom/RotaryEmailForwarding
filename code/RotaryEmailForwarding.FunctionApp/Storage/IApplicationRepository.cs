@@ -40,7 +40,7 @@ public interface IApplicationRepository
         CancellationToken cancellationToken);
 
     Task<ContactsForCountry?> GetEffectiveCountryContactAsync(
-        string normalizedCountryName,
+        string normalizedCountry,
         DateTimeOffset asOfUtc,
         CancellationToken cancellationToken);
 

@@ -31,10 +31,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
@@ -62,10 +62,10 @@ jobs:
     if: github.event_name != 'pull_request'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
@@ -78,7 +78,7 @@ jobs:
           zip -r ../functionapp.zip .
 
       - name: Upload release artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: publish/functionapp.zip
@@ -95,10 +95,10 @@ jobs:
       AZURE_RESOURCE_GROUP: TestRotaryEmailForwarding
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Download release artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: publish
@@ -115,7 +115,7 @@ jobs:
           : "${AZURE_RESOURCE_GROUP:?Missing AZURE_RESOURCE_GROUP job setting}"
 
       - name: Azure login
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -136,11 +136,33 @@ jobs:
             --output tsv)
           echo "function_name=$function_name" >> "$GITHUB_OUTPUT"
 
+      - name: Verify Function app storage settings
+        run: |
+          settings=$(az functionapp config appsettings list \
+            --resource-group "${AZURE_RESOURCE_GROUP}" \
+            --name "${{ steps.infra.outputs.function_name }}" \
+            --query "[].name" \
+            --output tsv)
+
+          for required_setting in \
+            AzureWebJobsStorage__credential \
+            AzureWebJobsStorage__blobServiceUri \
+            AzureWebJobsStorage__queueServiceUri \
+            AzureWebJobsStorage__tableServiceUri
+          do
+            if ! grep -Fxq "$required_setting" <<< "$settings"; then
+              echo "::error::Missing required app setting: $required_setting"
+              exit 1
+            fi
+          done
+
       - name: Deploy same Function app package
         uses: Azure/functions-action@v1
         with:
           app-name: ${{ steps.infra.outputs.function_name }}
           package: publish/functionapp.zip
+          sku: flexconsumption
+          remote-build: false
 
       - name: Smoke test
         run: curl --fail --show-error --silent "https://${{ steps.infra.outputs.function_name }}.azurewebsites.net/api/health"
@@ -155,10 +177,10 @@ jobs:
       AZURE_RESOURCE_GROUP: RotaryEmailForwarding
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Download release artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: publish
@@ -175,7 +197,7 @@ jobs:
           : "${AZURE_RESOURCE_GROUP:?Missing AZURE_RESOURCE_GROUP job setting}"
 
       - name: Azure login
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -196,11 +218,33 @@ jobs:
             --output tsv)
           echo "function_name=$function_name" >> "$GITHUB_OUTPUT"
 
+      - name: Verify Function app storage settings
+        run: |
+          settings=$(az functionapp config appsettings list \
+            --resource-group "${AZURE_RESOURCE_GROUP}" \
+            --name "${{ steps.infra.outputs.function_name }}" \
+            --query "[].name" \
+            --output tsv)
+
+          for required_setting in \
+            AzureWebJobsStorage__credential \
+            AzureWebJobsStorage__blobServiceUri \
+            AzureWebJobsStorage__queueServiceUri \
+            AzureWebJobsStorage__tableServiceUri
+          do
+            if ! grep -Fxq "$required_setting" <<< "$settings"; then
+              echo "::error::Missing required app setting: $required_setting"
+              exit 1
+            fi
+          done
+
       - name: Deploy same Function app package
         uses: Azure/functions-action@v1
         with:
           app-name: ${{ steps.infra.outputs.function_name }}
           package: publish/functionapp.zip
+          sku: flexconsumption
+          remote-build: false
 
       - name: Post-deploy smoke test
         run: curl --fail --show-error --silent "https://${{ steps.infra.outputs.function_name }}.azurewebsites.net/api/health"

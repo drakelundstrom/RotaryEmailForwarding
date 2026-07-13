@@ -1,3 +1,4 @@
+using System.Globalization;
 using RotaryEmailForwarding.FunctionApp.Configuration;
 using RotaryEmailForwarding.FunctionApp.Domain;
 using RotaryEmailForwarding.FunctionApp.Models;
@@ -62,7 +63,7 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        var districtNames = string.Join(", ", route.DistrictContacts.Select(contact => contact.DistrictName));
+        var districtNames = string.Join(", ", route.DistrictContacts.Select(contact => contact.District));
         var uncertainty = route.HasMultipleDistrictMatches
             ? $"{Environment.NewLine}The system is not sure which district applies, so this was sent to all matching districts: {districtNames}.{Environment.NewLine}"
             : string.Empty;
@@ -104,9 +105,9 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
         var routeSummary = route.Kind switch
         {
             SubmissionRouteKind.District when route.DistrictContacts.Count > 0 =>
-                $"A representative from district {string.Join(", ", route.DistrictContacts.Select(contact => contact.DistrictName))} will follow up.",
+                $"A representative from district {string.Join(", ", route.DistrictContacts.Select(contact => contact.District))} will follow up.",
             SubmissionRouteKind.Country when route.CountryContact is not null =>
-                $"A representative for {route.CountryContact.CountryName} will follow up.",
+                $"A representative for {GetDisplayCountryName(route.CountryContact.Country)} will follow up.",
             _ => "A representative will follow up."
         };
 
@@ -127,7 +128,9 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
             return null;
         }
 
-        var countryName = route.CountryContact?.CountryName ?? UnknownIfBlank(submission.CountryOfResidence);
+        var countryName = route.CountryContact?.Country is not null
+            ? GetDisplayCountryName(route.CountryContact.Country)
+            : UnknownIfBlank(submission.CountryOfResidence);
 
         return new OutboundEmailMessage(
             $"submitter-rejection:{submission.Id}",
@@ -164,6 +167,8 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
         {
             "Student information:",
             $"Name: {UnknownIfBlank(submission.Name)}",
+            $"Interested in going on exchange: {BoolToOriginalText(submission.IsInterestedOutboundStudent)}",
+            $"Interested in hosting: {BoolToOriginalText(submission.IsInterestedInHosting)}",
             $"Age: {UnknownIfBlank(submission.Age)}",
             $"Gender: {UnknownIfBlank(submission.Gender)}",
             $"Email: {UnknownIfBlank(submission.Email)}",
@@ -180,8 +185,28 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
         });
     }
 
+    private static string GetDisplayCountryName(string? country)
+    {
+        if (string.IsNullOrWhiteSpace(country))
+        {
+            return "Unknown";
+        }
+
+        return CultureInfo.CurrentCulture.TextInfo.ToTitleCase(country.Trim().ToLowerInvariant());
+    }
+
     private static string UnknownIfBlank(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? "Unknown" : value.Trim();
+    }
+
+    private static string BoolToOriginalText(bool? value)
+    {
+        return value switch
+        {
+            true => "yes",
+            false => "no",
+            _ => "Unknown"
+        };
     }
 }

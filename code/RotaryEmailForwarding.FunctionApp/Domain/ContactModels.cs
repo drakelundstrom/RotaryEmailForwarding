@@ -11,19 +11,13 @@ public sealed record ContactsForDistrict
 
     public string Type { get; init; } = "ContactsForDistrict";
 
-    public required string DistrictName { get; init; }
+    public required string Country { get; init; }
+
+    public required string District { get; init; }
 
     public IReadOnlyList<string> EmailAddresses { get; init; } = [];
 
-    public IReadOnlyList<string> Zipcodes { get; init; } = [];
-
-    public int Version { get; init; } = 1;
-
-    public DateTimeOffset EffectiveFromUtc { get; init; } = DateTimeOffset.UtcNow;
-
-    public DateTimeOffset? EffectiveToUtc { get; init; }
-
-    public bool IsActive { get; init; } = true;
+    public IReadOnlyList<string> ZipCodes { get; init; } = [];
 }
 
 public sealed record ContactsForCountry
@@ -34,19 +28,11 @@ public sealed record ContactsForCountry
 
     public string Type { get; init; } = "ContactsForCountry";
 
-    public required string CountryName { get; init; }
+    public required string Country { get; init; }
 
     public IReadOnlyList<string> EmailAddresses { get; init; } = [];
 
     public bool IsCertified { get; init; }
-
-    public int Version { get; init; } = 1;
-
-    public DateTimeOffset EffectiveFromUtc { get; init; } = DateTimeOffset.UtcNow;
-
-    public DateTimeOffset? EffectiveToUtc { get; init; }
-
-    public bool IsActive { get; init; } = true;
 }
 
 public sealed record RequestBodyLog
