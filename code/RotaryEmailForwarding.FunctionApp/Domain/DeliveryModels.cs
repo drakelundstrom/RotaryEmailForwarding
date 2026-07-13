@@ -32,7 +32,8 @@ public sealed record OutboundEmailMessage(
     OutboundEmailMessageType MessageType,
     IReadOnlyList<string> Recipients,
     string Subject,
-    string Body);
+    string Body,
+    bool IsBodyHtml = false);
 
 public sealed record OutboundEmailAttempt
 {

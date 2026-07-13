@@ -25,7 +25,7 @@ public interface IApplicationRepository
         DateTimeOffset sinceUtc,
         CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<NormalizedInterestFormSubmission>> GetSubmissionsByReceivedRangeAsync(
+    Task<IReadOnlyList<NormalizedInterestFormSubmission>> GetSubmissionsByStorageTimestampRangeAsync(
         DateTimeOffset startUtc,
         DateTimeOffset endUtc,
         CancellationToken cancellationToken);

@@ -61,6 +61,7 @@ az keyvault secret set --vault-name <test-vault-name> --name nonProductionSafeRe
 - `GET /api/contacts-for-districts/{districtName}`: admin district lookup, requires `x-admin-api-key`.
 - `GET /api/generate-submissions-by-month?start=...&end=...`: admin monthly reporting, requires `x-admin-api-key`.
 - `GET /api/submissions/district/{districtName}`: admin district submission report, requires `x-admin-api-key`.
+- `GET /api/interest-forms-per-district-per-quarter`: admin markdown report for the current quarter plus the prior 2 years by Cosmos `_ts`, grouped by country and district, requires `x-admin-api-key`.
 - `GET /api/health`: anonymous health probe.
 
 ## Delivery and Retry

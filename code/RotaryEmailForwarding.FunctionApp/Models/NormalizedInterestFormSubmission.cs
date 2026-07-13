@@ -12,6 +12,17 @@ public sealed record NormalizedInterestFormSubmission
 
     public string Type { get; init; } = "InterestFormSubmission";
 
+    [JsonPropertyName("_ts")]
+    [JsonProperty("_ts")]
+    public long? CosmosTimestamp { get; init; }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    [Newtonsoft.Json.JsonIgnore]
+    public DateTimeOffset? CosmosTimestampOnUtc =>
+        CosmosTimestamp is > 0
+            ? DateTimeOffset.FromUnixTimeSeconds(CosmosTimestamp.Value)
+            : null;
+
     public string? SubmissionType { get; init; }
 
     public string? OptionalSubmissionQuestion { get; init; }

@@ -55,7 +55,8 @@ public sealed class SmtpEmailSender(AppConfiguration configuration) : IEmailSend
             {
                 From = new MailAddress(configuration.SendingEmailAddress),
                 Subject = message.Subject,
-                Body = message.Body
+                Body = message.Body,
+                IsBodyHtml = message.IsBodyHtml
             };
 
             foreach (var recipient in EffectiveRecipients(message.Recipients))

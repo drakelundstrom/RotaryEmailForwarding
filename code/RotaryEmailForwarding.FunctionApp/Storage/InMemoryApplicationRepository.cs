@@ -111,7 +111,7 @@ public sealed class InMemoryApplicationRepository : IApplicationRepository
         }
     }
 
-    public Task<IReadOnlyList<NormalizedInterestFormSubmission>> GetSubmissionsByReceivedRangeAsync(
+    public Task<IReadOnlyList<NormalizedInterestFormSubmission>> GetSubmissionsByStorageTimestampRangeAsync(
         DateTimeOffset startUtc,
         DateTimeOffset endUtc,
         CancellationToken cancellationToken)
@@ -119,8 +119,11 @@ public sealed class InMemoryApplicationRepository : IApplicationRepository
         lock (gate)
         {
             var results = submissions
-                .Where(submission => submission.ReceivedOnUtc >= startUtc && submission.ReceivedOnUtc < endUtc)
-                .OrderBy(submission => submission.ReceivedOnUtc)
+                .Where(submission =>
+                    submission.CosmosTimestampOnUtc is { } timestamp
+                    && timestamp >= startUtc
+                    && timestamp < endUtc)
+                .OrderBy(submission => submission.CosmosTimestampOnUtc)
                 .ToList();
 
             return Task.FromResult<IReadOnlyList<NormalizedInterestFormSubmission>>(results);

@@ -136,7 +136,7 @@ public sealed class CosmosApplicationRepository : IApplicationRepository
             cancellationToken);
     }
 
-    public Task<IReadOnlyList<NormalizedInterestFormSubmission>> GetSubmissionsByReceivedRangeAsync(
+    public Task<IReadOnlyList<NormalizedInterestFormSubmission>> GetSubmissionsByStorageTimestampRangeAsync(
         DateTimeOffset startUtc,
         DateTimeOffset endUtc,
         CancellationToken cancellationToken)
@@ -144,16 +144,16 @@ public sealed class CosmosApplicationRepository : IApplicationRepository
         const string query = """
             SELECT * FROM c
             WHERE c.Type = @type
-              AND c.ReceivedOnUtc >= @startUtc
-              AND c.ReceivedOnUtc < @endUtc
-            ORDER BY c.ReceivedOnUtc ASC
+              AND c._ts >= @startEpochSeconds
+              AND c._ts < @endEpochSeconds
+            ORDER BY c._ts ASC
             """;
 
         return QueryAsync<NormalizedInterestFormSubmission>(
             new QueryDefinition(query)
                 .WithParameter("@type", SubmissionType)
-                .WithParameter("@startUtc", startUtc)
-                .WithParameter("@endUtc", endUtc),
+                .WithParameter("@startEpochSeconds", startUtc.ToUnixTimeSeconds())
+                .WithParameter("@endEpochSeconds", endUtc.ToUnixTimeSeconds()),
             cancellationToken);
     }
 

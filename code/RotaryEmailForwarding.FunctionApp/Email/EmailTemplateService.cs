@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using RotaryEmailForwarding.FunctionApp.Configuration;
 using RotaryEmailForwarding.FunctionApp.Domain;
 using RotaryEmailForwarding.FunctionApp.Models;
@@ -9,6 +10,9 @@ namespace RotaryEmailForwarding.FunctionApp.Email;
 
 public sealed class EmailTemplateService(AppConfiguration configuration)
 {
+    private const string PublicSiteUrl = "https://studyabroadscholarships.org/";
+    private const string PublicSiteDisplayName = "studyabroadscholarships.org";
+
     public IReadOnlyList<OutboundEmailMessage> BuildMessages(
         NormalizedInterestFormSubmission submission,
         SubmissionRoute route)
@@ -67,16 +71,17 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
             BuildInterestedPartyRecipients(submission),
             ShouldCopySupport(submission) ? [configuration.SupportEmail] : []);
 
-        var bodyIntro = route.HasMultipleDistrictMatches
-            ? BuildMultipleDistrictIntro(route)
-            : $"We are reaching out to connect you with our local coordinators in {FormatDistrictForSentence(route.DistrictContacts.FirstOrDefault()?.District)}.";
-
         return new OutboundEmailMessage(
             $"district:{submission.Id}",
             OutboundEmailMessageType.DistrictRepresentative,
             recipients,
             $"Rotary Youth Exchange interest from {UnknownIfBlank(submission.Name)}",
-            BuildSharedBody(bodyIntro, submission));
+            BuildSharedBody(
+                BuildDistrictGreeting(route),
+                BuildDistrictIntro(route),
+                submission,
+                "your district"),
+            true);
     }
 
     private OutboundEmailMessage BuildCountryForwardingMessage(
@@ -96,8 +101,14 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
             recipients,
             $"Rotary Youth Exchange interest from {UnknownIfBlank(submission.Name)}",
             BuildSharedBody(
-                $"We are reaching out to connect you with our local coordinators for {GetDisplayCountryName(country)}.",
-                submission));
+                $"Hello RYE {Html(GetDisplayCountryName(country))} Representatives,",
+                [
+                    $"An interested person in your country has submitted a Rotary Youth Exchange contact form on the Study Abroad Scholarships website at {SiteLink()}.",
+                    "They have been told to expect a follow up within 2 weeks."
+                ],
+                submission,
+                "your country"),
+            true);
     }
 
     private OutboundEmailMessage BuildManualRoutingMessage(
@@ -115,9 +126,16 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
             recipients,
             "Rotary Youth Exchange interest needs routing review",
             BuildSharedBody(
-                "Our automated system was not able to resolve where you should be forwarded, but an admin will take a look and should have this resolved in a week or less. In the meantime, feel free to reach out to your local Rotary club!",
+                "Hello,",
+                [
+                    $"An interested person has submitted a Rotary Youth Exchange contact form on the Study Abroad Scholarships website at {SiteLink()}.",
+                    "The automated system was not able to resolve where this submission should be forwarded, so an admin should review it.",
+                    "The submitter should expect a follow up within 2 weeks."
+                ],
                 submission,
-                route.Errors));
+                "this submission",
+                route.Errors),
+            true);
     }
 
     private bool ShouldCopySupport(NormalizedInterestFormSubmission submission)
@@ -150,43 +168,71 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
         }
     }
 
-    private static string BuildMultipleDistrictIntro(SubmissionRoute route)
+    private static string BuildDistrictGreeting(SubmissionRoute route)
     {
-        var districtCount = route.DistrictContacts.Count;
-        var districtNames = string.Join(", ", route.DistrictContacts.Select(contact => contact.District));
+        var districtNames = route.DistrictContacts
+            .Select(contact => FormatDistrictForGreeting(contact.District))
+            .ToList();
 
-        var included = districtCount == 2 ? "both" : "all matching districts";
-        return $"You are on the border of {districtCount.ToString(CultureInfo.InvariantCulture)} Rotary districts, so we have included {included} to make sure the right person gets in contact.{Environment.NewLine}Districts included: {districtNames}.";
+        return districtNames.Count == 0
+            ? "Hello RYE District Representatives,"
+            : $"Hello RYE {Html(JoinForSentence(districtNames))} Representatives,";
     }
 
-    private static string FormatDistrictForSentence(string? district)
+    private static IReadOnlyList<string> BuildDistrictIntro(SubmissionRoute route)
+    {
+        if (!route.HasMultipleDistrictMatches)
+        {
+            return
+            [
+                $"An interested person in your district has submitted a Rotary Youth Exchange contact form on the Study Abroad Scholarships website at {SiteLink()}.",
+                "They have been informed of the relevant Rotary district and told to expect a follow up within 2 weeks."
+            ];
+        }
+
+        var districtNames = JoinForSentence(route.DistrictContacts.Select(contact => FormatDistrictForGreeting(contact.District)));
+        return
+        [
+            $"An interested person has submitted a Rotary Youth Exchange contact form on the Study Abroad Scholarships website at {SiteLink()}.",
+            $"This submission matched multiple Rotary districts ({Html(districtNames)}), so all matching districts have been included.",
+            "The submitter should expect a follow up within 2 weeks."
+        ];
+    }
+
+    private static string FormatDistrictForGreeting(string? district)
     {
         var trimmed = UnknownIfBlank(district);
         return trimmed.StartsWith("district ", StringComparison.OrdinalIgnoreCase)
-            ? $"Rotary {trimmed}"
-            : $"Rotary District {trimmed}";
+            ? trimmed
+            : $"District {trimmed}";
     }
 
-    private static string BuildSharedBody(
-        string intro,
+    private string BuildSharedBody(
+        string greeting,
+        IReadOnlyList<string> introParagraphs,
         NormalizedInterestFormSubmission submission,
+        string supportContext,
         IReadOnlyList<string>? routingErrors = null)
     {
         var sections = new List<string>
         {
-            "Hello,",
-            string.Empty,
-            intro,
-            string.Empty,
-            "Here are the details from the interest form:",
-            SubmissionInformationBlock(submission)
+            Paragraph(greeting)
         };
+
+        sections.AddRange(introParagraphs.Select(Paragraph));
+        sections.AddRange(
+        [
+            Paragraph("Here is the information from the form submission:"),
+            SubmissionInformationBlock(submission)
+        ]);
 
         if (routingErrors?.Count > 0)
         {
-            sections.Add(string.Empty);
-            sections.Add($"Routing notes: {string.Join("; ", routingErrors)}");
+            sections.Add(Paragraph($"Routing notes: {Html(string.Join("; ", routingErrors))}"));
         }
+
+        sections.Add(Paragraph($"If you have any admin support questions, advice for the process, need to add or remove email addresses for {Html(supportContext)}, or want a list of previous submissions, please reach out to {SupportEmailLink()}."));
+        sections.Add(Paragraph($"Thank you for your support of {SiteLink()}!"));
 
         return string.Join(Environment.NewLine, sections);
     }
@@ -208,11 +254,11 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
         AddLine(lines, "State or province", submission.State);
         AddLine(lines, "City", submission.City);
         AddLine(lines, "Zip code or first 3 of CDN postal code", submission.Zipcode);
-        AddLine(lines, "Specific questions", submission.OptionalSubmissionQuestion);
+        AddLine(lines, "Question", submission.OptionalSubmissionQuestion);
 
         return lines.Count == 0
-            ? "No form details were provided."
-            : string.Join(Environment.NewLine, lines);
+            ? Paragraph("No form details were provided.")
+            : $"<p>{string.Join("<br>", lines)}</p>";
     }
 
     private static string GetDisplayCountryName(string? country)
@@ -241,7 +287,7 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
     {
         if (!string.IsNullOrWhiteSpace(value))
         {
-            lines.Add($"{label}: {value.Trim()}");
+            lines.Add($"<strong>{label}:</strong> {Html(value.Trim())}");
         }
     }
 
@@ -249,7 +295,40 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
     {
         if (!string.IsNullOrWhiteSpace(country))
         {
-            lines.Add($"Country of residence: {GetDisplayCountryName(country)}");
+            lines.Add($"<strong>Country of residence:</strong> {Html(GetDisplayCountryName(country))}");
         }
+    }
+
+    private static string Paragraph(string text)
+    {
+        return $"<p>{text}</p>";
+    }
+
+    private static string SiteLink()
+    {
+        return $"""<a href="{PublicSiteUrl}">{PublicSiteDisplayName}</a>""";
+    }
+
+    private string SupportEmailLink()
+    {
+        var operatorEmail = Html(configuration.OperatorEmail);
+        return $"""<a href="mailto:{operatorEmail}">{operatorEmail}</a>""";
+    }
+
+    private static string JoinForSentence(IEnumerable<string> values)
+    {
+        var items = values.ToList();
+        return items.Count switch
+        {
+            0 => string.Empty,
+            1 => items[0],
+            2 => $"{items[0]} and {items[1]}",
+            _ => $"{string.Join(", ", items.Take(items.Count - 1))}, and {items[^1]}"
+        };
+    }
+
+    private static string Html(string value)
+    {
+        return WebUtility.HtmlEncode(value);
     }
 }
