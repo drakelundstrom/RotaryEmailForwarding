@@ -42,8 +42,13 @@ param cosmosDatabaseName string = 'EmailForwarding'
 @description('Cosmos DB SQL container name.')
 param cosmosContainerName string = 'ContactInfoAndRequests'
 
+@description('Provisioned throughput for the Cosmos DB SQL container.')
+@minValue(400)
+@maxValue(1000000)
+param cosmosContainerThroughput int = 400
+
 @description('Canonical SMTP host setting. Credentials are supplied through Key Vault.')
-param mailHost string = 'smtp-mail.outlook.com'
+param mailHost string = 'smtp.gmail.com'
 
 @description('Canonical SMTP port setting.')
 param mailPort string = '587'
@@ -86,6 +91,7 @@ var functionAppSettings = {
   AzureWebJobsStorage__blobServiceUri: 'https://${storage.name}.blob.${environment().suffixes.storage}'
   AzureWebJobsStorage__queueServiceUri: 'https://${storage.name}.queue.${environment().suffixes.storage}'
   AzureWebJobsStorage__tableServiceUri: 'https://${storage.name}.table.${environment().suffixes.storage}'
+  FUNCTIONS_WORKER_RUNTIME: 'dotnet-isolated'
   APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsights.properties.ConnectionString
   APPLICATIONINSIGHTS_AUTHENTICATION_STRING: 'Authorization=AAD'
   appEnvironment: environmentName
@@ -207,12 +213,26 @@ resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' existi
   scope: resourceGroup(cosmosAccountResourceGroupName)
 }
 
+module cosmosResources 'cosmos.bicep' = {
+  name: 'cosmos-${environmentName}'
+  scope: resourceGroup(cosmosAccountResourceGroupName)
+  params: {
+    cosmosAccountName: cosmosAccountName
+    cosmosDatabaseName: cosmosDatabaseName
+    cosmosContainerName: cosmosContainerName
+    cosmosContainerThroughput: cosmosContainerThroughput
+  }
+}
+
 resource databaseConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   parent: keyVault
   name: 'databaseConnectionString'
   properties: {
     value: cosmosAccount.listConnectionStrings().connectionStrings[0].connectionString
   }
+  dependsOn: [
+    cosmosResources
+  ]
 }
 
 resource functionPlan 'Microsoft.Web/serverfarms@2024-04-01' = {
@@ -270,6 +290,9 @@ resource functionAppAppSettings 'Microsoft.Web/sites/config@2024-04-01' = {
   parent: functionApp
   name: 'appsettings'
   properties: functionAppSettings
+  dependsOn: [
+    functionKeyVaultRoleAssignment
+  ]
 }
 
 resource functionBlobRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
@@ -326,3 +349,5 @@ output functionAppName string = functionApp.name
 output functionAppUrl string = 'https://${functionApp.properties.defaultHostName}'
 output keyVaultName string = keyVault.name
 output cosmosAccountName string = cosmosAccount.name
+output cosmosDatabaseName string = cosmosResources.outputs.databaseName
+output cosmosContainerName string = cosmosResources.outputs.containerName
