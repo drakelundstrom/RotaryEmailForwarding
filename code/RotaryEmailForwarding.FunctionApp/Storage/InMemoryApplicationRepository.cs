@@ -130,6 +130,31 @@ public sealed class InMemoryApplicationRepository : IApplicationRepository
         }
     }
 
+    public Task<IReadOnlyList<NormalizedInterestFormSubmission>> GetSubmissionsByReceivedOnOrStorageTimestampRangeAsync(
+        DateTimeOffset startUtc,
+        DateTimeOffset endUtc,
+        CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            var results = submissions
+                .Select(submission => new
+                {
+                    Submission = submission,
+                    ReportedOnUtc = ReportedOnUtc(submission)
+                })
+                .Where(entry =>
+                    entry.ReportedOnUtc is { } reportedOnUtc
+                    && reportedOnUtc >= startUtc
+                    && reportedOnUtc < endUtc)
+                .OrderBy(entry => entry.ReportedOnUtc)
+                .Select(entry => entry.Submission)
+                .ToList();
+
+            return Task.FromResult<IReadOnlyList<NormalizedInterestFormSubmission>>(results);
+        }
+    }
+
     public Task<IReadOnlyList<ContactsForDistrict>> GetEffectiveDistrictContactsAsync(
         DateTimeOffset asOfUtc,
         CancellationToken cancellationToken)
@@ -198,5 +223,12 @@ public sealed class InMemoryApplicationRepository : IApplicationRepository
             .OrderBy(contact => contact.Country, StringComparer.OrdinalIgnoreCase)
             .ThenBy(contact => contact.District, StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    private static DateTimeOffset? ReportedOnUtc(NormalizedInterestFormSubmission submission)
+    {
+        return submission.ReceivedOnUtc != default
+            ? submission.ReceivedOnUtc
+            : submission.CosmosTimestampOnUtc;
     }
 }

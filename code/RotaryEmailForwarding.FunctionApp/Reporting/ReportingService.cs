@@ -92,7 +92,7 @@ public sealed class ReportingService(IApplicationRepository repository)
         CancellationToken cancellationToken)
     {
         var quarters = BuildQuarterWindow(asOfUtc).ToList();
-        var submissions = await repository.GetSubmissionsByStorageTimestampRangeAsync(
+        var submissions = await repository.GetSubmissionsByReceivedOnOrStorageTimestampRangeAsync(
             quarters[0].Start,
             quarters[^1].End,
             cancellationToken);
@@ -102,14 +102,14 @@ public sealed class ReportingService(IApplicationRepository repository)
 
         foreach (var submission in submissions)
         {
-            if (submission.CosmosTimestampOnUtc is not { } storageTimestamp)
+            if (ReportedOnUtc(submission) is not { } reportedOnUtc)
             {
                 continue;
             }
 
             var quarterIndex = quarters.FindIndex(quarter =>
-                storageTimestamp >= quarter.Start
-                && storageTimestamp < quarter.End);
+                reportedOnUtc >= quarter.Start
+                && reportedOnUtc < quarter.End);
             if (quarterIndex < 0)
             {
                 continue;
@@ -264,6 +264,13 @@ public sealed class ReportingService(IApplicationRepository repository)
         }
 
         return string.Equals(normalized, TestingDistrict, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static DateTimeOffset? ReportedOnUtc(NormalizedInterestFormSubmission submission)
+    {
+        return submission.ReceivedOnUtc != default
+            ? submission.ReceivedOnUtc
+            : submission.CosmosTimestampOnUtc;
     }
 
     private static string CountryGroup(string? country)

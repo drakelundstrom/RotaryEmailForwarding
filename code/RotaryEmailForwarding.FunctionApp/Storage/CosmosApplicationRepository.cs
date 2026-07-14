@@ -157,6 +157,42 @@ public sealed class CosmosApplicationRepository : IApplicationRepository
             cancellationToken);
     }
 
+    public Task<IReadOnlyList<NormalizedInterestFormSubmission>> GetSubmissionsByReceivedOnOrStorageTimestampRangeAsync(
+        DateTimeOffset startUtc,
+        DateTimeOffset endUtc,
+        CancellationToken cancellationToken)
+    {
+        const string query = """
+            SELECT * FROM c
+            WHERE c.Type = @type
+              AND (
+                (
+                  IS_DEFINED(c.ReceivedOnUtc)
+                  AND NOT IS_NULL(c.ReceivedOnUtc)
+                  AND c.ReceivedOnUtc != @defaultReceivedOnUtc
+                  AND c.ReceivedOnUtc >= @startUtc
+                  AND c.ReceivedOnUtc < @endUtc
+                )
+                OR (
+                  (NOT IS_DEFINED(c.ReceivedOnUtc) OR IS_NULL(c.ReceivedOnUtc) OR c.ReceivedOnUtc = @defaultReceivedOnUtc)
+                  AND c._ts >= @startEpochSeconds
+                  AND c._ts < @endEpochSeconds
+                )
+              )
+            ORDER BY c._ts ASC
+            """;
+
+        return QueryAsync<NormalizedInterestFormSubmission>(
+            new QueryDefinition(query)
+                .WithParameter("@type", SubmissionType)
+                .WithParameter("@defaultReceivedOnUtc", default(DateTimeOffset))
+                .WithParameter("@startUtc", startUtc)
+                .WithParameter("@endUtc", endUtc)
+                .WithParameter("@startEpochSeconds", startUtc.ToUnixTimeSeconds())
+                .WithParameter("@endEpochSeconds", endUtc.ToUnixTimeSeconds()),
+            cancellationToken);
+    }
+
     public Task<IReadOnlyList<ContactsForDistrict>> GetEffectiveDistrictContactsAsync(
         DateTimeOffset asOfUtc,
         CancellationToken cancellationToken)

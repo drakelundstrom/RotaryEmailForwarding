@@ -205,6 +205,23 @@ public sealed class SpecBehaviorTests
 
         var rotarianMessage = Assert.Single(rotarianSender.SentMessages);
         Assert.Contains("support@example.com", rotarianMessage.Recipients);
+
+        var otherSender = new FakeEmailSender();
+        var otherWorkflow = BuildWorkflow(repository, otherSender, supportEmail: "support@example.com");
+        await otherWorkflow.ProcessAsync(
+            new InterestFormSubmissionRequest
+            {
+                SubmissionType = "Other",
+                Name = "Other Example",
+                ContactEmail = "other@example.com",
+                CountryOfResidence = "United States",
+                Zipcode = "44102"
+            },
+            "corr-support-other",
+            CancellationToken.None);
+
+        var otherMessage = Assert.Single(otherSender.SentMessages);
+        Assert.Contains("support@example.com", otherMessage.Recipients);
     }
 
     [Fact]
@@ -579,7 +596,7 @@ public sealed class SpecBehaviorTests
             },
             new DateTimeOffset(2024, 7, 2, 0, 0, 0, TimeSpan.Zero)) with
         {
-            CosmosTimestamp = new DateTimeOffset(2026, 7, 2, 0, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds()
+            CosmosTimestamp = new DateTimeOffset(2020, 1, 2, 0, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds()
         };
 
         await repository.InsertSubmissionAsync(oldJsonSubmission, CancellationToken.None);
@@ -590,9 +607,9 @@ public sealed class SpecBehaviorTests
             new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
             CancellationToken.None);
 
-        Assert.Contains("| USA | District 6630 | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |", markdown);
+        Assert.Contains("| USA | District 6630 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |", markdown);
         Assert.Contains("| Canada | District 5550 | 0 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 |", markdown);
-        Assert.Contains("| Mexico | Other | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |", markdown);
+        Assert.Contains("| Mexico | Other | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |", markdown);
     }
 
     [Fact]
