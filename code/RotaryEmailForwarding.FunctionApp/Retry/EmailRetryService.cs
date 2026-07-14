@@ -45,7 +45,7 @@ public sealed class EmailRetryService(
         {
             attempted++;
             var route = await routingService.RouteAsync(submission, cancellationToken);
-            var messages = templateService.BuildMessages(submission, route, "{}");
+            var messages = templateService.BuildMessages(submission, route);
             var delivered = await deliveryOrchestrator.DeliverAsync(submission, messages, cancellationToken);
             await repository.UpdateSubmissionAsync(delivered, cancellationToken);
 

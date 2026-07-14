@@ -104,10 +104,12 @@ public sealed class SubmitInterestFunction(
                 correlationId);
         }
 
+        LogUnhandledFields(submissionRequest, correlationId);
+
         SubmissionWorkflowResult result;
         try
         {
-            result = await workflow.ProcessAsync(submissionRequest, rawBody, correlationId, cancellationToken);
+            result = await workflow.ProcessAsync(submissionRequest, correlationId, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -166,6 +168,19 @@ public sealed class SubmitInterestFunction(
         return request.Headers.TryGetValues("x-correlation-id", out var values)
             ? values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? Guid.NewGuid().ToString("D")
             : Guid.NewGuid().ToString("D");
+    }
+
+    private void LogUnhandledFields(InterestFormSubmissionRequest request, string correlationId)
+    {
+        if (request.UnhandledFields is null || request.UnhandledFields.Count == 0)
+        {
+            return;
+        }
+
+        logger.LogInformation(
+            "Interest form submission included unhandled fields. CorrelationId: {CorrelationId}, Fields: {UnhandledFields}",
+            correlationId,
+            string.Join(", ", request.UnhandledFields.Keys.OrderBy(key => key, StringComparer.OrdinalIgnoreCase)));
     }
 
     private async Task SendOperatorFailureAsync(

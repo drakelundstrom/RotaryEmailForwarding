@@ -1,0 +1,4 @@
+interface:
+  display_name: "Email Example Checker"
+  short_description: "Keep rendered email examples aligned"
+  default_prompt: "Use $check-email-examples to verify README email examples against EmailTemplateService before updating docs."

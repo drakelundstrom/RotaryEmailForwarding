@@ -16,6 +16,11 @@ public sealed class SubmissionRoutingService(IApplicationRepository repository, 
             return Fallback("Country of residence missing");
         }
 
+        if (country is not ("usa" or "canada" or "mexico"))
+        {
+            return Fallback("Country is outside supported routing countries");
+        }
+
         if (country is "usa" or "canada")
         {
             if (string.IsNullOrWhiteSpace(submission.Zipcode))
@@ -47,6 +52,7 @@ public sealed class SubmissionRoutingService(IApplicationRepository repository, 
                 };
         }
 
+        // Mexico uses a country-level contact instead of district zip/postal routing.
         var countryContact = await repository.GetEffectiveCountryContactAsync(country, clock.UtcNow, cancellationToken);
         if (countryContact is null)
         {
