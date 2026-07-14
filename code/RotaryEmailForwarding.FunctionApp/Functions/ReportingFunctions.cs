@@ -53,6 +53,26 @@ public sealed class ReportingFunctions(
         return response;
     }
 
+    [Function("GenerateInterestFormsPerDistrictPerQuarter")]
+    public async Task<HttpResponseData> GenerateInterestFormsPerDistrictPerQuarter(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "interest-forms-per-district-per-quarter")] HttpRequestData request,
+        CancellationToken cancellationToken)
+    {
+        if (!authorizationService.IsAuthorized(request))
+        {
+            return await ErrorAsync(request, HttpStatusCode.Unauthorized, "Admin authorization is required.");
+        }
+
+        var markdown = await reportingService.GenerateInterestFormsByDistrictQuarterMarkdownAsync(
+            DateTimeOffset.UtcNow,
+            cancellationToken);
+
+        var response = request.CreateResponse(HttpStatusCode.OK);
+        response.Headers.Add("Content-Type", "text/markdown; charset=utf-8");
+        await response.WriteStringAsync(markdown, cancellationToken);
+        return response;
+    }
+
     private static async Task<HttpResponseData> ErrorAsync(HttpRequestData request, HttpStatusCode status, string message)
     {
         var response = request.CreateResponse(status);

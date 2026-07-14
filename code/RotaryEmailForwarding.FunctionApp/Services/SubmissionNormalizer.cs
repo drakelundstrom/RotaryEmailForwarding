@@ -1,8 +1,16 @@
 using System.Globalization;
-using System.Text.Json;
 using RotaryEmailForwarding.FunctionApp.Models;
 
 namespace RotaryEmailForwarding.FunctionApp.Services;
+
+public enum InterestFormSubmitterType
+{
+    Unknown,
+    Student,
+    Parent,
+    Rotarian,
+    Other
+}
 
 public static class SubmissionNormalizer
 {
@@ -12,9 +20,7 @@ public static class SubmissionNormalizer
         ["us"] = "usa",
         ["unitedstates"] = "usa",
         ["america"] = "usa",
-        ["britian"] = "uk",
-        ["unitedkingdom"] = "uk",
-        ["england"] = "uk"
+        ["mx"] = "mexico"
     };
 
     public static NormalizedInterestFormSubmission Normalize(
@@ -27,25 +33,52 @@ public static class SubmissionNormalizer
         return new NormalizedInterestFormSubmission
         {
             Id = Guid.NewGuid().ToString("D", CultureInfo.InvariantCulture),
-            IsInterestedOutboundStudent = NormalizeBoolean(request.IsInterestedOutboundStudent),
-            IsInterestedInHosting = NormalizeBoolean(request.IsInterestedInHosting),
-            SubmissionQuestion = TrimToNull(request.SubmissionQuestion),
+            SubmissionType = TrimToNull(request.SubmissionType),
+            OptionalSubmissionQuestion = TrimToNull(request.OptionalSubmissionQuestion),
             Name = TrimToNull(request.Name),
             Age = TrimToNull(request.Age),
-            Gender = TrimToNull(request.Gender),
-            Email = TrimToNull(request.Email),
-            Phone = TrimToNull(request.Phone),
+            ParentEnteredAge = TrimToNull(request.ParentEnteredAge),
+            StudentEmail = TrimToNull(request.StudentEmail),
+            StudentPhone = TrimToNull(request.StudentPhone),
+            ParentEmail = TrimToNull(request.ParentEmail),
+            ParentPhone = TrimToNull(request.ParentPhone),
+            ContactEmail = TrimToNull(request.ContactEmail),
+            ContactPhone = TrimToNull(request.ContactPhone),
             CountryOfResidence = normalizedCountry,
             State = TrimToNull(request.State),
             City = TrimToNull(request.City),
             Zipcode = normalizedZipcode,
-            CountryChoiceOne = TrimToNull(request.CountryChoiceOne),
-            CountryChoiceTwo = TrimToNull(request.CountryChoiceTwo),
-            CountryChoiceThree = TrimToNull(request.CountryChoiceThree),
-            CountryChoiceFour = TrimToNull(request.CountryChoiceFour),
-            ReceivedOnUtc = receivedOnUtc,
-            AdditionalFields = request.AdditionalFields ?? new Dictionary<string, JsonElement>()
+            ReceivedOnUtc = receivedOnUtc
         };
+    }
+
+    public static InterestFormSubmitterType GetSubmitterType(string? submissionType)
+    {
+        var normalized = NormalizeOptionKey(submissionType);
+        if (normalized is null)
+        {
+            return InterestFormSubmitterType.Unknown;
+        }
+
+        if (normalized.Contains("rotarian", StringComparison.Ordinal))
+        {
+            return InterestFormSubmitterType.Rotarian;
+        }
+
+        if (normalized.Contains("parent", StringComparison.Ordinal)
+            || normalized.Contains("guardian", StringComparison.Ordinal))
+        {
+            return InterestFormSubmitterType.Parent;
+        }
+
+        if (normalized.Contains("student", StringComparison.Ordinal))
+        {
+            return InterestFormSubmitterType.Student;
+        }
+
+        return normalized.Contains("other", StringComparison.Ordinal)
+            ? InterestFormSubmitterType.Other
+            : InterestFormSubmitterType.Unknown;
     }
 
     public static string? NormalizeCountry(string? country)
@@ -86,23 +119,25 @@ public static class SubmissionNormalizer
         };
     }
 
-    private static bool? NormalizeBoolean(string? value)
-    {
-        var normalized = TrimToNull(value)?.ToLowerInvariant();
-
-        return normalized switch
-        {
-            "true" or "yes" or "y" or "1" or "on" => true,
-            "false" or "no" or "n" or "0" or "off" => false,
-            _ => null
-        };
-    }
-
     private static string? TrimToNull(string? value)
     {
         var trimmed = value?.Trim();
 
         return string.IsNullOrEmpty(trimmed) ? null : trimmed;
+    }
+
+    private static string? NormalizeOptionKey(string? value)
+    {
+        var trimmed = TrimToNull(value);
+        if (trimmed is null)
+        {
+            return null;
+        }
+
+        return new string(trimmed
+            .ToLowerInvariant()
+            .Where(char.IsLetterOrDigit)
+            .ToArray());
     }
 
     private static string TakeAtMost(string value, int length)
