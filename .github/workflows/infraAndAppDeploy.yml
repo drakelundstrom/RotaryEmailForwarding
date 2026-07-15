@@ -128,6 +128,8 @@ jobs:
           az deployment group create \
             --resource-group "${AZURE_RESOURCE_GROUP}" \
             --name "$deployment_name" \
+            --mode Incremental \
+            --template-file infra/main.bicep \
             --parameters infra/params/parameters.test.bicepparam
           function_name=$(az deployment group show \
             --resource-group "${AZURE_RESOURCE_GROUP}" \
@@ -136,25 +138,93 @@ jobs:
             --output tsv)
           echo "function_name=$function_name" >> "$GITHUB_OUTPUT"
 
-      - name: Verify Function app storage settings
+      - name: Verify Function app settings
         run: |
-          settings=$(az functionapp config appsettings list \
+          settings_json=$(az functionapp config appsettings list \
             --resource-group "${AZURE_RESOURCE_GROUP}" \
             --name "${{ steps.infra.outputs.function_name }}" \
-            --query "[].name" \
-            --output tsv)
+            --output json)
+          settings=$(jq -r '.[].name' <<< "$settings_json")
 
           for required_setting in \
             AzureWebJobsStorage__credential \
             AzureWebJobsStorage__blobServiceUri \
             AzureWebJobsStorage__queueServiceUri \
-            AzureWebJobsStorage__tableServiceUri
+            AzureWebJobsStorage__tableServiceUri \
+            FUNCTIONS_WORKER_RUNTIME \
+            APPLICATIONINSIGHTS_CONNECTION_STRING \
+            APPLICATIONINSIGHTS_AUTHENTICATION_STRING \
+            appEnvironment \
+            cosmosDatabaseName \
+            cosmosContainerName \
+            cosmosAccountEndpoint \
+            databaseConnectionString \
+            sendingEmailAddress \
+            operatorEmail \
+            supportEmail \
+            sendingEmailPassword \
+            mailHost \
+            mailPort \
+            mailSecurityMode \
+            emailRetryTimeZone \
+            adminApiKey \
+            nonProductionSafeRecipient \
+            allowUnsafeNonProductionEmail \
+            maxRequestBodyBytes \
+            FUNCTIONS_REQUEST_BODY_SIZE_LIMIT
           do
             if ! grep -Fxq "$required_setting" <<< "$settings"; then
               echo "::error::Missing required app setting: $required_setting"
               exit 1
             fi
           done
+
+          setting_value() {
+            jq -r --arg name "$1" '.[] | select(.name == $name) | .value // empty' <<< "$settings_json"
+          }
+
+          assert_setting_value() {
+            local setting_name="$1"
+            local expected_value="$2"
+            local actual_value
+            actual_value="$(setting_value "$setting_name")"
+
+            if [ "$actual_value" != "$expected_value" ]; then
+              echo "::error::App setting $setting_name was not set to the expected Bicep-managed value."
+              exit 1
+            fi
+          }
+
+          assert_key_vault_reference() {
+            local setting_name="$1"
+            local actual_value
+            actual_value="$(setting_value "$setting_name")"
+
+            if [[ "$actual_value" != @Microsoft.KeyVault*"$setting_name"* ]]; then
+              echo "::error::App setting $setting_name was not configured as the expected Key Vault reference."
+              exit 1
+            fi
+          }
+
+          assert_setting_value FUNCTIONS_WORKER_RUNTIME dotnet-isolated
+          assert_setting_value appEnvironment test
+          assert_setting_value cosmosDatabaseName EmailForwarding
+          assert_setting_value cosmosContainerName ContactInfoAndRequests
+          assert_setting_value mailHost smtp.gmail.com
+          assert_setting_value mailPort 587
+          assert_setting_value mailSecurityMode StartTls
+          assert_setting_value emailRetryTimeZone "Eastern Standard Time"
+          assert_setting_value allowUnsafeNonProductionEmail false
+          assert_setting_value maxRequestBodyBytes 131072
+          assert_setting_value FUNCTIONS_REQUEST_BODY_SIZE_LIMIT 131072
+
+          assert_key_vault_reference databaseConnectionString
+          assert_key_vault_reference sendingEmailAddress
+          assert_key_vault_reference operatorEmail
+          assert_key_vault_reference supportEmail
+          assert_key_vault_reference sendingEmailPassword
+          assert_key_vault_reference adminApiKey
+          assert_key_vault_reference nonProductionSafeRecipient
 
       - name: Deploy same Function app package
         uses: Azure/functions-action@v1
@@ -210,6 +280,8 @@ jobs:
           az deployment group create \
             --resource-group "${AZURE_RESOURCE_GROUP}" \
             --name "$deployment_name" \
+            --mode Incremental \
+            --template-file infra/main.bicep \
             --parameters infra/params/parameters.prod.bicepparam
           function_name=$(az deployment group show \
             --resource-group "${AZURE_RESOURCE_GROUP}" \
@@ -218,25 +290,91 @@ jobs:
             --output tsv)
           echo "function_name=$function_name" >> "$GITHUB_OUTPUT"
 
-      - name: Verify Function app storage settings
+      - name: Verify Function app settings
         run: |
-          settings=$(az functionapp config appsettings list \
+          settings_json=$(az functionapp config appsettings list \
             --resource-group "${AZURE_RESOURCE_GROUP}" \
             --name "${{ steps.infra.outputs.function_name }}" \
-            --query "[].name" \
-            --output tsv)
+            --output json)
+          settings=$(jq -r '.[].name' <<< "$settings_json")
 
           for required_setting in \
             AzureWebJobsStorage__credential \
             AzureWebJobsStorage__blobServiceUri \
             AzureWebJobsStorage__queueServiceUri \
-            AzureWebJobsStorage__tableServiceUri
+            AzureWebJobsStorage__tableServiceUri \
+            FUNCTIONS_WORKER_RUNTIME \
+            APPLICATIONINSIGHTS_CONNECTION_STRING \
+            APPLICATIONINSIGHTS_AUTHENTICATION_STRING \
+            appEnvironment \
+            cosmosDatabaseName \
+            cosmosContainerName \
+            cosmosAccountEndpoint \
+            databaseConnectionString \
+            sendingEmailAddress \
+            operatorEmail \
+            supportEmail \
+            sendingEmailPassword \
+            mailHost \
+            mailPort \
+            mailSecurityMode \
+            emailRetryTimeZone \
+            adminApiKey \
+            allowUnsafeNonProductionEmail \
+            maxRequestBodyBytes \
+            FUNCTIONS_REQUEST_BODY_SIZE_LIMIT
           do
             if ! grep -Fxq "$required_setting" <<< "$settings"; then
               echo "::error::Missing required app setting: $required_setting"
               exit 1
             fi
           done
+
+          setting_value() {
+            jq -r --arg name "$1" '.[] | select(.name == $name) | .value // empty' <<< "$settings_json"
+          }
+
+          assert_setting_value() {
+            local setting_name="$1"
+            local expected_value="$2"
+            local actual_value
+            actual_value="$(setting_value "$setting_name")"
+
+            if [ "$actual_value" != "$expected_value" ]; then
+              echo "::error::App setting $setting_name was not set to the expected Bicep-managed value."
+              exit 1
+            fi
+          }
+
+          assert_key_vault_reference() {
+            local setting_name="$1"
+            local actual_value
+            actual_value="$(setting_value "$setting_name")"
+
+            if [[ "$actual_value" != @Microsoft.KeyVault*"$setting_name"* ]]; then
+              echo "::error::App setting $setting_name was not configured as the expected Key Vault reference."
+              exit 1
+            fi
+          }
+
+          assert_setting_value FUNCTIONS_WORKER_RUNTIME dotnet-isolated
+          assert_setting_value appEnvironment prod
+          assert_setting_value cosmosDatabaseName EmailForwarding
+          assert_setting_value cosmosContainerName ContactInfoAndRequests
+          assert_setting_value mailHost smtp.gmail.com
+          assert_setting_value mailPort 587
+          assert_setting_value mailSecurityMode StartTls
+          assert_setting_value emailRetryTimeZone "Eastern Standard Time"
+          assert_setting_value allowUnsafeNonProductionEmail false
+          assert_setting_value maxRequestBodyBytes 131072
+          assert_setting_value FUNCTIONS_REQUEST_BODY_SIZE_LIMIT 131072
+
+          assert_key_vault_reference databaseConnectionString
+          assert_key_vault_reference sendingEmailAddress
+          assert_key_vault_reference operatorEmail
+          assert_key_vault_reference supportEmail
+          assert_key_vault_reference sendingEmailPassword
+          assert_key_vault_reference adminApiKey
 
       - name: Deploy same Function app package
         uses: Azure/functions-action@v1

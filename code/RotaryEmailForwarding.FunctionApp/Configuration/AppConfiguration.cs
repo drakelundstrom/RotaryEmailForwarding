@@ -20,7 +20,7 @@ public sealed record AppConfiguration
 
     public string? SendingEmailPassword { get; init; }
 
-    public string MailHost { get; init; } = "smtp-mail.outlook.com";
+    public string MailHost { get; init; } = "smtp.gmail.com";
 
     public int MailPort { get; init; } = 587;
 
@@ -53,7 +53,7 @@ public sealed record AppConfiguration
             OperatorEmail = operatorEmail,
             SupportEmail = configuration["supportEmail"] ?? operatorEmail,
             SendingEmailPassword = configuration["sendingEmailPassword"],
-            MailHost = configuration["mailHost"] ?? "smtp-mail.outlook.com",
+            MailHost = configuration["mailHost"] ?? "smtp.gmail.com",
             MailPort = int.TryParse(configuration["mailPort"], out var port) ? port : 587,
             MailSecurityMode = configuration["mailSecurityMode"] ?? "StartTls",
             EmailRetryTimeZone = configuration["emailRetryTimeZone"] ?? "Eastern Standard Time",

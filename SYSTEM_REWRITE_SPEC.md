@@ -89,8 +89,8 @@ The same Cosmos container also stores the contact directory and raw request logs
 ### 5.2 External Identifiers and Brands Used by the App
 
 - Public site referenced in email bodies: `https://studyabroadscholarships.org/`
-- Support contact referenced in email bodies: `StudyAbroadScholarshipsWebsite@outlook.com`
-- Current SMTP host in code: `smtp-mail.outlook.com`
+- Support contact referenced in email bodies: `StudyAbroadScholarshipsWebsite@gmail.com`
+- Current SMTP host in code: `smtp.gmail.com`
 
 ## 6. Current Technology Baseline
 
@@ -758,17 +758,17 @@ Retry behavior:
 
 Legacy transport behavior:
 
-- Host: `smtp-mail.outlook.com`
+- Host: `smtp.gmail.com`
 - Port: `587`
 - Security: `StartTls`
-- Auth: `sendingEmailAddress` + `sendingEmailPassword`
+- Auth: `sendingEmailAddress` + `sendingEmailPassword` (Gmail app password)
 
 Replacement requirements:
 
 - The rewrite must use a single authoritative mail-provider configuration source.
 - SMTP host, port, security mode, username, and password must be environment-configurable.
 - Checked-in config files must not contain contradictory live-provider settings.
-- The initial production deployment may continue using Outlook SMTP for compatibility, but the provider must not be hardcoded in application logic.
+- The initial production deployment uses Gmail SMTP by default, but the provider must not be hardcoded in application logic.
 
 ### 11.2 Email Subjects
 
@@ -806,7 +806,7 @@ Body requirements:
 - State that an interested person in the district submitted a Rotary Youth Exchange contact form at `studyabroadscholarships.org`
 - State that the submitter was informed of the district number and told to expect follow-up within a couple of weeks
 - Include a student-information block containing all submission fields
-- Include an instruction to contact `StudyAbroadScholarshipsWebsite@outlook.com` for questions, advice, directory maintenance, or prior submissions
+- Include an instruction to contact `StudyAbroadScholarshipsWebsite@gmail.com` for questions, advice, directory maintenance, or prior submissions
 
 ### 11.4 Country Representative Email
 
@@ -837,7 +837,7 @@ Body requirements:
 - State that a representative from Study Abroad Scholarships / Rotary Youth Exchange will follow up within 2 weeks
 - If district or country is known, mention it
 - If not known, no district/country is named
-- Tell the submitter to contact `StudyAbroadScholarshipsWebsite@outlook.com` if they do not hear back within 2 weeks
+- Tell the submitter to contact `StudyAbroadScholarshipsWebsite@gmail.com` if they do not hear back within 2 weeks
 - Include the student-information block
 
 Important legacy behavior:
