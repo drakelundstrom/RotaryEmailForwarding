@@ -88,26 +88,30 @@ Subject: Rotary Youth Exchange interest from Jordan Rivera
 
 ```html
 <p>Hello Jordan Rivera,</p>
-<p>Thank you for reaching out to learn more about Rotary Youth Exchange.</p>
+<p><strong><u>For the submitting student:</u></strong></p>
+<p>Thank you for reaching out to learn more about the Study Abroad Scholarships offered as part of Rotary Youth Exchange.</p>
 <p>Your local Rotary Youth Exchange representatives from District 6630 have been added to this email, so you can reply all to ask your questions.</p>
 <p>They should reply within 2 weeks with information about how the program works in your area.</p>
 <p>For reference, here is the information you submitted:</p>
 <p><strong>Who are you?:</strong> Student<br><strong>Name:</strong> Jordan Rivera<br><strong>Current age (years):</strong> 16<br><strong>Student's email:</strong> jordan@example.com<br><strong>Student's phone number:</strong> 555-0100<br><strong>Parent's email:</strong> parent@example.com<br><strong>Parent's phone number:</strong> 555-0101<br><strong>Country of residence:</strong> USA<br><strong>State or province:</strong> Ohio<br><strong>City:</strong> Cleveland<br><strong>Zip code or first 3 of CDN postal code:</strong> 44102<br><strong>Question:</strong> Can I choose a country?</p>
-<p>For the Rotary representatives: if you have any admin support questions, need advice about the process, need to add or remove email addresses for your district, or want a list of previous submissions, please contact <a href="mailto:operator@example.test">operator@example.test</a>.</p>
-<p>Thank you for your interest in Rotary Youth Exchange through <a href="https://studyabroadscholarships.org/">studyabroadscholarships.org</a>!</p>
+<p><strong><u>For the Rotary representative:</u></strong></p>
+<p>If you have any admin support questions, need advice about the process, need to add or remove email addresses for your district, or want a list of previous submissions, please contact <a href="mailto:operator@example.test">operator@example.test</a>.</p>
+<p>Thank you for your interest in the Study Abroad Scholarships offered through Rotary Youth Exchange at <a href="https://studyabroadscholarships.org/">studyabroadscholarships.org</a>!</p>
 ```
 
 #### Rendered body
 
 <!-- email-example-rendered:start -->
 <p>Hello Jordan Rivera,</p>
-<p>Thank you for reaching out to learn more about Rotary Youth Exchange.</p>
+<p><strong><u>For the submitting student:</u></strong></p>
+<p>Thank you for reaching out to learn more about the Study Abroad Scholarships offered as part of Rotary Youth Exchange.</p>
 <p>Your local Rotary Youth Exchange representatives from District 6630 have been added to this email, so you can reply all to ask your questions.</p>
 <p>They should reply within 2 weeks with information about how the program works in your area.</p>
 <p>For reference, here is the information you submitted:</p>
 <p><strong>Who are you?:</strong> Student<br><strong>Name:</strong> Jordan Rivera<br><strong>Current age (years):</strong> 16<br><strong>Student's email:</strong> jordan@example.com<br><strong>Student's phone number:</strong> 555-0100<br><strong>Parent's email:</strong> parent@example.com<br><strong>Parent's phone number:</strong> 555-0101<br><strong>Country of residence:</strong> USA<br><strong>State or province:</strong> Ohio<br><strong>City:</strong> Cleveland<br><strong>Zip code or first 3 of CDN postal code:</strong> 44102<br><strong>Question:</strong> Can I choose a country?</p>
-<p>For the Rotary representatives: if you have any admin support questions, need advice about the process, need to add or remove email addresses for your district, or want a list of previous submissions, please contact <a href="mailto:operator@example.test">operator@example.test</a>.</p>
-<p>Thank you for your interest in Rotary Youth Exchange through <a href="https://studyabroadscholarships.org/">studyabroadscholarships.org</a>!</p>
+<p><strong><u>For the Rotary representative:</u></strong></p>
+<p>If you have any admin support questions, need advice about the process, need to add or remove email addresses for your district, or want a list of previous submissions, please contact <a href="mailto:operator@example.test">operator@example.test</a>.</p>
+<p>Thank you for your interest in the Study Abroad Scholarships offered through Rotary Youth Exchange at <a href="https://studyabroadscholarships.org/">studyabroadscholarships.org</a>!</p>
 <!-- email-example-rendered:end -->
 
 ### Rotarian routed to one district (with a question)
@@ -119,27 +123,31 @@ Subject: Rotary Youth Exchange question from Morgan Chen
 #### HTML source
 
 ```html
-<p>Hello Morgan Chen,</p>
-<p>Thank you for reaching out with your Rotary Youth Exchange question.</p>
+<p>Hello fellow Rotarian,</p>
+<p><strong><u>For the submitting Rotarian:</u></strong></p>
+<p>Thank you for participating in Rotary Youth Exchange and for reaching out with your question about the Study Abroad Scholarships offered as part of the program.</p>
 <p>The Rotary Youth Exchange representatives from District 6630 and our support team have been added to this email, so you can reply all with any additional details or questions.</p>
 <p>They should reply within 2 weeks with guidance specific to your area.</p>
 <p>For reference, here is the information you submitted:</p>
 <p><strong>Who are you?:</strong> Rotarian<br><strong>Name:</strong> Morgan Chen<br><strong>Contact email:</strong> morgan@example.com<br><strong>Contact phone number:</strong> 555-0110<br><strong>Country of residence:</strong> USA<br><strong>State or province:</strong> Ohio<br><strong>City:</strong> Cleveland<br><strong>Zip code or first 3 of CDN postal code:</strong> 44102<br><strong>Question:</strong> How can our club help a student apply?</p>
-<p>For the Rotary representatives: if you have any admin support questions, need advice about the process, need to add or remove email addresses for your district, or want a list of previous submissions, please contact <a href="mailto:operator@example.test">operator@example.test</a>.</p>
-<p>Thank you for supporting Rotary Youth Exchange through <a href="https://studyabroadscholarships.org/">studyabroadscholarships.org</a>!</p>
+<p><strong><u>For the Rotary representatives and support team:</u></strong></p>
+<p>This question was submitted by a fellow Rotarian. If you have any admin support questions, need advice about the process, need to add or remove email addresses for your district, or want a list of previous submissions, please contact <a href="mailto:operator@example.test">operator@example.test</a>.</p>
+<p>Thank you for participating in Rotary Youth Exchange and supporting the Study Abroad Scholarships through <a href="https://studyabroadscholarships.org/">studyabroadscholarships.org</a>!</p>
 ```
 
 #### Rendered body
 
 <!-- email-example-rendered:start -->
-<p>Hello Morgan Chen,</p>
-<p>Thank you for reaching out with your Rotary Youth Exchange question.</p>
+<p>Hello fellow Rotarian,</p>
+<p><strong><u>For the submitting Rotarian:</u></strong></p>
+<p>Thank you for participating in Rotary Youth Exchange and for reaching out with your question about the Study Abroad Scholarships offered as part of the program.</p>
 <p>The Rotary Youth Exchange representatives from District 6630 and our support team have been added to this email, so you can reply all with any additional details or questions.</p>
 <p>They should reply within 2 weeks with guidance specific to your area.</p>
 <p>For reference, here is the information you submitted:</p>
 <p><strong>Who are you?:</strong> Rotarian<br><strong>Name:</strong> Morgan Chen<br><strong>Contact email:</strong> morgan@example.com<br><strong>Contact phone number:</strong> 555-0110<br><strong>Country of residence:</strong> USA<br><strong>State or province:</strong> Ohio<br><strong>City:</strong> Cleveland<br><strong>Zip code or first 3 of CDN postal code:</strong> 44102<br><strong>Question:</strong> How can our club help a student apply?</p>
-<p>For the Rotary representatives: if you have any admin support questions, need advice about the process, need to add or remove email addresses for your district, or want a list of previous submissions, please contact <a href="mailto:operator@example.test">operator@example.test</a>.</p>
-<p>Thank you for supporting Rotary Youth Exchange through <a href="https://studyabroadscholarships.org/">studyabroadscholarships.org</a>!</p>
+<p><strong><u>For the Rotary representatives and support team:</u></strong></p>
+<p>This question was submitted by a fellow Rotarian. If you have any admin support questions, need advice about the process, need to add or remove email addresses for your district, or want a list of previous submissions, please contact <a href="mailto:operator@example.test">operator@example.test</a>.</p>
+<p>Thank you for participating in Rotary Youth Exchange and supporting the Study Abroad Scholarships through <a href="https://studyabroadscholarships.org/">studyabroadscholarships.org</a>!</p>
 <!-- email-example-rendered:end -->
 
 ### Parent submission on a district border (without a question)
@@ -152,26 +160,30 @@ Subject: Rotary Youth Exchange interest from Pat Nguyen
 
 ```html
 <p>Hello Pat Nguyen,</p>
-<p>Thank you for reaching out to learn more about Rotary Youth Exchange.</p>
+<p><strong><u>For the submitting family:</u></strong></p>
+<p>Thank you for reaching out to learn more about the Study Abroad Scholarships offered as part of Rotary Youth Exchange.</p>
 <p>Your location matched multiple Rotary districts (District 6630 and District 6650), so representatives from each district have been added to this email. You can reply all to ask your questions.</p>
 <p>They should reply within 2 weeks with information about how the program works in your area.</p>
 <p>For reference, here is the information you submitted:</p>
 <p><strong>Who are you?:</strong> Parent<br><strong>Name:</strong> Pat Nguyen<br><strong>Current age of your student (years):</strong> 15<br><strong>Student's email:</strong> student@example.com<br><strong>Parent's email:</strong> parent@example.com<br><strong>Contact email:</strong> contact@example.com<br><strong>Country of residence:</strong> USA<br><strong>State or province:</strong> Pennsylvania<br><strong>City:</strong> Erie<br><strong>Zip code or first 3 of CDN postal code:</strong> 16501</p>
-<p>For the Rotary representatives: if you have any admin support questions, need advice about the process, need to add or remove email addresses for your district, or want a list of previous submissions, please contact <a href="mailto:operator@example.test">operator@example.test</a>.</p>
-<p>Thank you for your interest in Rotary Youth Exchange through <a href="https://studyabroadscholarships.org/">studyabroadscholarships.org</a>!</p>
+<p><strong><u>For the Rotary representative:</u></strong></p>
+<p>If you have any admin support questions, need advice about the process, need to add or remove email addresses for your district, or want a list of previous submissions, please contact <a href="mailto:operator@example.test">operator@example.test</a>.</p>
+<p>Thank you for your interest in the Study Abroad Scholarships offered through Rotary Youth Exchange at <a href="https://studyabroadscholarships.org/">studyabroadscholarships.org</a>!</p>
 ```
 
 #### Rendered body
 
 <!-- email-example-rendered:start -->
 <p>Hello Pat Nguyen,</p>
-<p>Thank you for reaching out to learn more about Rotary Youth Exchange.</p>
+<p><strong><u>For the submitting family:</u></strong></p>
+<p>Thank you for reaching out to learn more about the Study Abroad Scholarships offered as part of Rotary Youth Exchange.</p>
 <p>Your location matched multiple Rotary districts (District 6630 and District 6650), so representatives from each district have been added to this email. You can reply all to ask your questions.</p>
 <p>They should reply within 2 weeks with information about how the program works in your area.</p>
 <p>For reference, here is the information you submitted:</p>
 <p><strong>Who are you?:</strong> Parent<br><strong>Name:</strong> Pat Nguyen<br><strong>Current age of your student (years):</strong> 15<br><strong>Student's email:</strong> student@example.com<br><strong>Parent's email:</strong> parent@example.com<br><strong>Contact email:</strong> contact@example.com<br><strong>Country of residence:</strong> USA<br><strong>State or province:</strong> Pennsylvania<br><strong>City:</strong> Erie<br><strong>Zip code or first 3 of CDN postal code:</strong> 16501</p>
-<p>For the Rotary representatives: if you have any admin support questions, need advice about the process, need to add or remove email addresses for your district, or want a list of previous submissions, please contact <a href="mailto:operator@example.test">operator@example.test</a>.</p>
-<p>Thank you for your interest in Rotary Youth Exchange through <a href="https://studyabroadscholarships.org/">studyabroadscholarships.org</a>!</p>
+<p><strong><u>For the Rotary representative:</u></strong></p>
+<p>If you have any admin support questions, need advice about the process, need to add or remove email addresses for your district, or want a list of previous submissions, please contact <a href="mailto:operator@example.test">operator@example.test</a>.</p>
+<p>Thank you for your interest in the Study Abroad Scholarships offered through Rotary Youth Exchange at <a href="https://studyabroadscholarships.org/">studyabroadscholarships.org</a>!</p>
 <!-- email-example-rendered:end -->
 
 ### Mexico country routing (with a question)
@@ -184,26 +196,30 @@ Subject: Rotary Youth Exchange interest from Alex Martinez
 
 ```html
 <p>Hello Alex Martinez,</p>
-<p>Thank you for reaching out to learn more about Rotary Youth Exchange.</p>
+<p><strong><u>For the submitting family:</u></strong></p>
+<p>Thank you for reaching out to learn more about the Study Abroad Scholarships offered as part of Rotary Youth Exchange.</p>
 <p>The Rotary Youth Exchange representatives for Mexico have been added to this email, so you can reply all to ask your questions.</p>
 <p>They should reply within 2 weeks with information about how the program works in your area.</p>
 <p>For reference, here is the information you submitted:</p>
 <p><strong>Who are you?:</strong> Parent<br><strong>Name:</strong> Alex Martinez<br><strong>Current age of your student (years):</strong> 16<br><strong>Contact email:</strong> contact@example.com<br><strong>Contact phone number:</strong> 555-0102<br><strong>Country of residence:</strong> Mexico<br><strong>City:</strong> Monterrey<br><strong>Question:</strong> Is there an application deadline?</p>
-<p>For the Rotary representatives: if you have any admin support questions, need advice about the process, need to add or remove email addresses for your country, or want a list of previous submissions, please contact <a href="mailto:operator@example.test">operator@example.test</a>.</p>
-<p>Thank you for your interest in Rotary Youth Exchange through <a href="https://studyabroadscholarships.org/">studyabroadscholarships.org</a>!</p>
+<p><strong><u>For the Rotary representative:</u></strong></p>
+<p>If you have any admin support questions, need advice about the process, need to add or remove email addresses for your country, or want a list of previous submissions, please contact <a href="mailto:operator@example.test">operator@example.test</a>.</p>
+<p>Thank you for your interest in the Study Abroad Scholarships offered through Rotary Youth Exchange at <a href="https://studyabroadscholarships.org/">studyabroadscholarships.org</a>!</p>
 ```
 
 #### Rendered body
 
 <!-- email-example-rendered:start -->
 <p>Hello Alex Martinez,</p>
-<p>Thank you for reaching out to learn more about Rotary Youth Exchange.</p>
+<p><strong><u>For the submitting family:</u></strong></p>
+<p>Thank you for reaching out to learn more about the Study Abroad Scholarships offered as part of Rotary Youth Exchange.</p>
 <p>The Rotary Youth Exchange representatives for Mexico have been added to this email, so you can reply all to ask your questions.</p>
 <p>They should reply within 2 weeks with information about how the program works in your area.</p>
 <p>For reference, here is the information you submitted:</p>
 <p><strong>Who are you?:</strong> Parent<br><strong>Name:</strong> Alex Martinez<br><strong>Current age of your student (years):</strong> 16<br><strong>Contact email:</strong> contact@example.com<br><strong>Contact phone number:</strong> 555-0102<br><strong>Country of residence:</strong> Mexico<br><strong>City:</strong> Monterrey<br><strong>Question:</strong> Is there an application deadline?</p>
-<p>For the Rotary representatives: if you have any admin support questions, need advice about the process, need to add or remove email addresses for your country, or want a list of previous submissions, please contact <a href="mailto:operator@example.test">operator@example.test</a>.</p>
-<p>Thank you for your interest in Rotary Youth Exchange through <a href="https://studyabroadscholarships.org/">studyabroadscholarships.org</a>!</p>
+<p><strong><u>For the Rotary representative:</u></strong></p>
+<p>If you have any admin support questions, need advice about the process, need to add or remove email addresses for your country, or want a list of previous submissions, please contact <a href="mailto:operator@example.test">operator@example.test</a>.</p>
+<p>Thank you for your interest in the Study Abroad Scholarships offered through Rotary Youth Exchange at <a href="https://studyabroadscholarships.org/">studyabroadscholarships.org</a>!</p>
 <!-- email-example-rendered:end -->
 
 ### Manual routing review (without a question)
@@ -216,28 +232,32 @@ Subject: Rotary Youth Exchange interest needs routing review
 
 ```html
 <p>Hello Taylor Brooks,</p>
-<p>Thank you for reaching out to learn more about Rotary Youth Exchange.</p>
+<p><strong><u>For the submitter:</u></strong></p>
+<p>Thank you for reaching out to learn more about the Study Abroad Scholarships offered as part of Rotary Youth Exchange.</p>
 <p>We could not automatically identify the Rotary Youth Exchange representatives for your area, so our admin team has been added to this email to review your request.</p>
 <p>The admin team should reply within 2 weeks with information about the next steps.</p>
 <p>For reference, here is the information you submitted:</p>
 <p><strong>Who are you?:</strong> Other<br><strong>Name:</strong> Taylor Brooks<br><strong>Contact email:</strong> contact@example.com<br><strong>Country of residence:</strong> USA<br><strong>City:</strong> Unknown City</p>
 <p>Routing notes: Zipcode missing for district routing</p>
-<p>For the Rotary representatives: if you have any admin support questions, need advice about the process, need to add or remove email addresses for this submission, or want a list of previous submissions, please contact <a href="mailto:operator@example.test">operator@example.test</a>.</p>
-<p>Thank you for your interest in Rotary Youth Exchange through <a href="https://studyabroadscholarships.org/">studyabroadscholarships.org</a>!</p>
+<p><strong><u>For the Rotary admin team:</u></strong></p>
+<p>If you have any admin support questions, need advice about the process, need to add or remove email addresses for this submission, or want a list of previous submissions, please contact <a href="mailto:operator@example.test">operator@example.test</a>.</p>
+<p>Thank you for your interest in the Study Abroad Scholarships offered through Rotary Youth Exchange at <a href="https://studyabroadscholarships.org/">studyabroadscholarships.org</a>!</p>
 ```
 
 #### Rendered body
 
 <!-- email-example-rendered:start -->
 <p>Hello Taylor Brooks,</p>
-<p>Thank you for reaching out to learn more about Rotary Youth Exchange.</p>
+<p><strong><u>For the submitter:</u></strong></p>
+<p>Thank you for reaching out to learn more about the Study Abroad Scholarships offered as part of Rotary Youth Exchange.</p>
 <p>We could not automatically identify the Rotary Youth Exchange representatives for your area, so our admin team has been added to this email to review your request.</p>
 <p>The admin team should reply within 2 weeks with information about the next steps.</p>
 <p>For reference, here is the information you submitted:</p>
 <p><strong>Who are you?:</strong> Other<br><strong>Name:</strong> Taylor Brooks<br><strong>Contact email:</strong> contact@example.com<br><strong>Country of residence:</strong> USA<br><strong>City:</strong> Unknown City</p>
 <p>Routing notes: Zipcode missing for district routing</p>
-<p>For the Rotary representatives: if you have any admin support questions, need advice about the process, need to add or remove email addresses for this submission, or want a list of previous submissions, please contact <a href="mailto:operator@example.test">operator@example.test</a>.</p>
-<p>Thank you for your interest in Rotary Youth Exchange through <a href="https://studyabroadscholarships.org/">studyabroadscholarships.org</a>!</p>
+<p><strong><u>For the Rotary admin team:</u></strong></p>
+<p>If you have any admin support questions, need advice about the process, need to add or remove email addresses for this submission, or want a list of previous submissions, please contact <a href="mailto:operator@example.test">operator@example.test</a>.</p>
+<p>Thank you for your interest in the Study Abroad Scholarships offered through Rotary Youth Exchange at <a href="https://studyabroadscholarships.org/">studyabroadscholarships.org</a>!</p>
 <!-- email-example-rendered:end -->
 
 For every `Rotarian` submission, `supportEmail` is included on the outgoing message and the subject, introduction, and closing use Rotarian-specific wording. `Other` submissions also copy `supportEmail`; student and parent submissions do not.

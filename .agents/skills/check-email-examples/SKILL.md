@@ -15,7 +15,7 @@ Use this skill when `EmailTemplateService` or README email samples change.
 4. Show every sample body twice:
    - Under `#### HTML source`, include the literal output in an `html` fenced code block.
    - Under `#### Rendered body`, repeat the exact same HTML between `<!-- email-example-rendered:start -->` and `<!-- email-example-rendered:end -->` so Markdown renderers display the email preview.
-5. Keep the HTML source and rendered body byte-for-byte equivalent after line-ending normalization. Include the emitted route-specific greeting, intro paragraphs, information block, routing notes when present, support paragraph, and thank-you paragraph in both views.
+5. Keep the HTML source and rendered body byte-for-byte equivalent after line-ending normalization. Include the emitted route-specific greeting, bold-underlined audience labels, intro paragraphs, information block, routing notes when present, support paragraph, and thank-you paragraph in both views.
 6. Use emitted labels exactly. The optional question label is `Question`, producing `<strong>Question:</strong> ...`.
 7. Run `scripts/check-email-examples.ps1` from this skill folder, or perform its checks manually if PowerShell is unavailable.
 
