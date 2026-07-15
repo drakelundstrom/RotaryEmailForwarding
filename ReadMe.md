@@ -76,7 +76,7 @@ Flex Consumption does not support `WEBSITE_TIME_ZONE`, so the retry trigger wake
 
 ## Email Examples
 
-The examples below show representative HTML email output rendered by `EmailTemplateService` for common routing paths. Blank or null form fields are omitted from the information block. If both `StudentEmail` and `ParentEmail` are provided, both are included as recipients. Top-level `<p>` elements are split onto separate lines here for readability.
+The examples below show representative HTML email output rendered by `EmailTemplateService` for common routing paths. Blank or null form fields are omitted from the information block. Each submission produces one email: all applicable representatives, students, and parents are included together on that email's `To` line. Top-level `<p>` elements are split onto separate lines here for readability.
 
 ### Student routed to one district
 

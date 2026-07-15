@@ -48,7 +48,7 @@ public sealed class SubmissionWorkflow(
             RoutedCountry = route.CountryContact?.Country
         };
 
-        var messages = templateService.BuildMessages(submission, route);
+        var message = templateService.BuildMessage(submission, route);
         if (EmailTemplateService.BuildInterestedPartyRecipients(submission).Count == 0)
         {
             submission = submission with
@@ -60,7 +60,7 @@ public sealed class SubmissionWorkflow(
             };
         }
 
-        var delivered = await deliveryOrchestrator.DeliverAsync(submission, messages, cancellationToken);
+        var delivered = await deliveryOrchestrator.DeliverAsync(submission, [message], cancellationToken);
         await repository.UpdateSubmissionAsync(delivered, cancellationToken);
 
         return new SubmissionWorkflowResult

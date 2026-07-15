@@ -48,21 +48,10 @@ public sealed class SmtpEmailSender(AppConfiguration configuration) : IEmailSend
         try
         {
             using var emailClient = new SmtpClient();
-            var emailToSend = new MimeMessage
-            {
-                Subject = message.Subject,
-                Body = new TextPart(message.IsBodyHtml ? TextFormat.Html : TextFormat.Plain)
-                {
-                    Text = message.Body
-                }
-            };
-
-            emailToSend.From.Add(MailboxAddress.Parse(configuration.SendingEmailAddress));
-
-            foreach (var recipient in EffectiveRecipients(message.Recipients))
-            {
-                emailToSend.To.Add(MailboxAddress.Parse(recipient));
-            }
+            var emailToSend = BuildMimeMessage(
+                message,
+                configuration.SendingEmailAddress,
+                EffectiveRecipients(message.Recipients));
 
             await emailClient.ConnectAsync(
                 configuration.MailHost,
@@ -148,6 +137,26 @@ public sealed class SmtpEmailSender(AppConfiguration configuration) : IEmailSend
             OutboundEmailAttemptStatus.RetryableFailed,
             exception.GetType().Name,
             message);
+    }
+
+    internal static MimeMessage BuildMimeMessage(
+        OutboundEmailMessage message,
+        string sendingEmailAddress,
+        IReadOnlyList<string> recipients)
+    {
+        var emailToSend = new MimeMessage
+        {
+            Subject = message.Subject,
+            Body = new TextPart(message.IsBodyHtml ? TextFormat.Html : TextFormat.Plain)
+            {
+                Text = message.Body
+            }
+        };
+
+        emailToSend.From.Add(MailboxAddress.Parse(sendingEmailAddress));
+        emailToSend.To.AddRange(recipients.Select(MailboxAddress.Parse));
+
+        return emailToSend;
     }
 
     private IReadOnlyList<string> EffectiveRecipients(IReadOnlyList<string> recipients)
