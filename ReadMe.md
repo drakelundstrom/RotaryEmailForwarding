@@ -42,16 +42,20 @@ Runtime settings are resolved from environment variables or Azure App Settings:
 
 Azure environments use Key Vault references for `sendingEmailAddress`, `operatorEmail`, `supportEmail`, `sendingEmailPassword`, `databaseConnectionString`, `adminApiKey`, and the test-only `nonProductionSafeRecipient`.
 
+The infrastructure deployment creates the `EmailForwarding` Cosmos database and `ContactInfoAndRequests` container with `/Type` as the partition key. It also generates the `databaseConnectionString` Key Vault secret directly from the configured Cosmos account; do not create or maintain that secret manually.
+
 Create or update these Key Vault secrets after the environment Key Vault exists and before relying on email delivery:
 
 ```powershell
-az keyvault secret set --vault-name <vault-name> --name sendingEmailAddress --value <smtp-sender-address>
+az keyvault secret set --vault-name <vault-name> --name sendingEmailAddress --value <gmail-or-google-workspace-sender-address>
 az keyvault secret set --vault-name <vault-name> --name operatorEmail --value <maintenance-recipient-address>
 az keyvault secret set --vault-name <vault-name> --name supportEmail --value <public-support-address>
-az keyvault secret set --vault-name <vault-name> --name sendingEmailPassword --value <smtp-password>
+az keyvault secret set --vault-name <vault-name> --name sendingEmailPassword --value <gmail-app-password>
 az keyvault secret set --vault-name <vault-name> --name adminApiKey --value <admin-api-key>
 az keyvault secret set --vault-name <test-vault-name> --name nonProductionSafeRecipient --value <test-sink-address>
 ```
+
+Azure deployments default to Gmail SMTP: `smtp.gmail.com`, port `587`, `StartTls`.
 
 ## API Surface
 
@@ -153,6 +157,6 @@ For `Rotarian` and `Other` submissions, `supportEmail` is copied on the outgoing
 
 ## Security and Retention
 
-Production and test use isolated Function Apps, Storage accounts, Key Vaults, and app settings. Both environments are configured to use the shared Cosmos account `studyabroadscholarshipsdb` in resource group `EmailForwardingApi`, with the `EmailForwarding` database and `ContactInfoAndRequests` container. Non-production email is routed to the `nonProductionSafeRecipient` Key Vault secret unless unsafe delivery is explicitly enabled.
+Production and test use isolated Function Apps, Storage accounts, Key Vaults, and app settings. Both environments are configured to use the shared Cosmos account `studyabroadscholarshipsdb` in resource group `EmailForwardingApi`; deployment provisions the `EmailForwarding` database and the `ContactInfoAndRequests` container with 400 RU/s by default. Non-production email is routed to the `nonProductionSafeRecipient` Key Vault secret unless unsafe delivery is explicitly enabled.
 
 Rotate Key Vault secrets per environment by creating a new secret version and restarting the Function App after validation. PII-bearing submissions and raw request logs should be retained only as long as the operating program requires; align Cosmos retention or scheduled purge jobs with the organization retention policy before production launch.
