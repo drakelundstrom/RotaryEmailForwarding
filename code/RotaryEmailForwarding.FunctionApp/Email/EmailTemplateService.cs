@@ -13,19 +13,17 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
     private const string PublicSiteUrl = "https://studyabroadscholarships.org/";
     private const string PublicSiteDisplayName = "studyabroadscholarships.org";
 
-    public IReadOnlyList<OutboundEmailMessage> BuildMessages(
+    public OutboundEmailMessage BuildMessage(
         NormalizedInterestFormSubmission submission,
         SubmissionRoute route)
     {
-        var message = route.Kind switch
+        return route.Kind switch
         {
             SubmissionRouteKind.District => BuildDistrictForwardingMessage(submission, route),
             SubmissionRouteKind.Country => BuildCountryForwardingMessage(submission, route),
             SubmissionRouteKind.UncertifiedCountry => BuildManualRoutingMessage(submission, route),
             _ => BuildManualRoutingMessage(submission, route)
         };
-
-        return [message];
     }
 
     public OutboundEmailMessage BuildOperatorFailureMessage(

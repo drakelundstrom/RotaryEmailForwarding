@@ -1,5 +1,7 @@
-using System.Net;
-using System.Net.Mail;
+using MailKit.Net.Smtp;
+using MailKit.Security;
+using MimeKit;
+using MimeKit.Text;
 using RotaryEmailForwarding.FunctionApp.Configuration;
 using RotaryEmailForwarding.FunctionApp.Domain;
 
@@ -45,38 +47,34 @@ public sealed class SmtpEmailSender(AppConfiguration configuration) : IEmailSend
 
         try
         {
-            using var smtpClient = new SmtpClient(configuration.MailHost, configuration.MailPort)
-            {
-                EnableSsl = IsSslEnabled(configuration.MailSecurityMode),
-                Credentials = new NetworkCredential(configuration.SendingEmailAddress, configuration.SendingEmailPassword)
-            };
+            using var emailClient = new SmtpClient();
+            var emailToSend = BuildMimeMessage(
+                message,
+                configuration.SendingEmailAddress,
+                EffectiveRecipients(message.Recipients));
 
-            using var mailMessage = new MailMessage
-            {
-                From = new MailAddress(configuration.SendingEmailAddress),
-                Subject = message.Subject,
-                Body = message.Body,
-                IsBodyHtml = message.IsBodyHtml
-            };
+            await emailClient.ConnectAsync(
+                configuration.MailHost,
+                configuration.MailPort,
+                ResolveSocketOptions(configuration.MailSecurityMode),
+                cancellationToken);
+            await emailClient.AuthenticateAsync(
+                configuration.SendingEmailAddress,
+                configuration.SendingEmailPassword,
+                cancellationToken);
+            await emailClient.SendAsync(emailToSend, cancellationToken);
+            await emailClient.DisconnectAsync(true, cancellationToken);
 
-            foreach (var recipient in EffectiveRecipients(message.Recipients))
-            {
-                mailMessage.To.Add(recipient);
-            }
-
-            await smtpClient.SendMailAsync(mailMessage, cancellationToken);
             return EmailSendResult.Success("SmtpAccepted", "Message accepted by SMTP provider.");
         }
-        catch (SmtpException exception)
+        catch (Exception exception) when (exception is AuthenticationException
+            or SmtpCommandException
+            or SmtpProtocolException
+            or InvalidOperationException
+            or FormatException
+            or IOException)
         {
             return Classify(exception);
-        }
-        catch (InvalidOperationException exception)
-        {
-            return EmailSendResult.Failed(
-                OutboundEmailAttemptStatus.TerminalFailed,
-                "InvalidSmtpOperation",
-                exception.Message);
         }
     }
 
@@ -109,15 +107,29 @@ public sealed class SmtpEmailSender(AppConfiguration configuration) : IEmailSend
                 message);
         }
 
-        if (exception is SmtpException smtpException
-            && smtpException.StatusCode is SmtpStatusCode.TransactionFailed
-                or SmtpStatusCode.ServiceNotAvailable
-                or SmtpStatusCode.MailboxBusy
-                or SmtpStatusCode.MailboxNameNotAllowed)
+        if (exception is FormatException)
+        {
+            return EmailSendResult.Failed(
+                OutboundEmailAttemptStatus.TerminalFailed,
+                "InvalidEmailAddress",
+                message);
+        }
+
+        if (exception is SmtpCommandException smtpException
+            && smtpException.ErrorCode is SmtpErrorCode.SenderNotAccepted
+                or SmtpErrorCode.RecipientNotAccepted)
+        {
+            return EmailSendResult.Failed(
+                OutboundEmailAttemptStatus.TerminalFailed,
+                smtpException.ErrorCode.ToString(),
+                message);
+        }
+
+        if (exception is SmtpCommandException commandException)
         {
             return EmailSendResult.Failed(
                 OutboundEmailAttemptStatus.RetryableFailed,
-                smtpException.StatusCode.ToString(),
+                commandException.StatusCode.ToString(),
                 message);
         }
 
@@ -125,6 +137,26 @@ public sealed class SmtpEmailSender(AppConfiguration configuration) : IEmailSend
             OutboundEmailAttemptStatus.RetryableFailed,
             exception.GetType().Name,
             message);
+    }
+
+    internal static MimeMessage BuildMimeMessage(
+        OutboundEmailMessage message,
+        string sendingEmailAddress,
+        IReadOnlyList<string> recipients)
+    {
+        var emailToSend = new MimeMessage
+        {
+            Subject = message.Subject,
+            Body = new TextPart(message.IsBodyHtml ? TextFormat.Html : TextFormat.Plain)
+            {
+                Text = message.Body
+            }
+        };
+
+        emailToSend.From.Add(MailboxAddress.Parse(sendingEmailAddress));
+        emailToSend.To.AddRange(recipients.Select(MailboxAddress.Parse));
+
+        return emailToSend;
     }
 
     private IReadOnlyList<string> EffectiveRecipients(IReadOnlyList<string> recipients)
@@ -137,10 +169,30 @@ public sealed class SmtpEmailSender(AppConfiguration configuration) : IEmailSend
         return recipients;
     }
 
-    private static bool IsSslEnabled(string mode)
+    private static SecureSocketOptions ResolveSocketOptions(string mode)
     {
-        return mode.Equals("StartTls", StringComparison.OrdinalIgnoreCase)
-            || mode.Equals("Ssl", StringComparison.OrdinalIgnoreCase)
-            || mode.Equals("Tls", StringComparison.OrdinalIgnoreCase);
+        if (mode.Equals("None", StringComparison.OrdinalIgnoreCase))
+        {
+            return SecureSocketOptions.None;
+        }
+
+        if (mode.Equals("Ssl", StringComparison.OrdinalIgnoreCase)
+            || mode.Equals("SslOnConnect", StringComparison.OrdinalIgnoreCase))
+        {
+            return SecureSocketOptions.SslOnConnect;
+        }
+
+        if (mode.Equals("Auto", StringComparison.OrdinalIgnoreCase))
+        {
+            return SecureSocketOptions.Auto;
+        }
+
+        if (mode.Equals("StartTls", StringComparison.OrdinalIgnoreCase)
+            || mode.Equals("Tls", StringComparison.OrdinalIgnoreCase))
+        {
+            return SecureSocketOptions.StartTls;
+        }
+
+        throw new InvalidOperationException($"Unsupported mailSecurityMode '{mode}'.");
     }
 }

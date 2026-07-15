@@ -209,7 +209,7 @@ jobs:
           assert_setting_value FUNCTIONS_WORKER_RUNTIME dotnet-isolated
           assert_setting_value appEnvironment test
           assert_setting_value cosmosDatabaseName EmailForwarding
-          assert_setting_value cosmosContainerName ContactInfoAndRequests
+          assert_setting_value cosmosContainerName TestContactInfoAndRequestsByType
           assert_setting_value mailHost smtp.gmail.com
           assert_setting_value mailPort 587
           assert_setting_value mailSecurityMode StartTls
