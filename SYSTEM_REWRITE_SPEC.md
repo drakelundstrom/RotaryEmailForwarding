@@ -74,7 +74,7 @@ The same Cosmos container also stores the contact directory and raw request logs
   - Timer-triggered retry function for unsent submissions
 - Cosmos DB
   - Database: `EmailForwarding`
-  - Container: `ContactInfoAndRequests`
+  - Container: `ContactInfoAndRequestsByType`
   - Stores submissions, contact records, and raw request logs together
 - SMTP provider
   - Used to forward emails and send submitter notifications

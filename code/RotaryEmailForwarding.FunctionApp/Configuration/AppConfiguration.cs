@@ -8,7 +8,7 @@ public sealed record AppConfiguration
 
     public string CosmosDatabaseName { get; init; } = "EmailForwarding";
 
-    public string CosmosContainerName { get; init; } = "ContactInfoAndRequests";
+    public string CosmosContainerName { get; init; } = "ContactInfoAndRequestsByType";
 
     public string? DatabaseConnectionString { get; init; }
 
@@ -47,7 +47,7 @@ public sealed record AppConfiguration
         {
             AppEnvironment = configuration["appEnvironment"] ?? "local",
             CosmosDatabaseName = configuration["cosmosDatabaseName"] ?? "EmailForwarding",
-            CosmosContainerName = configuration["cosmosContainerName"] ?? "ContactInfoAndRequests",
+            CosmosContainerName = configuration["cosmosContainerName"] ?? "ContactInfoAndRequestsByType",
             DatabaseConnectionString = configuration["databaseConnectionString"],
             SendingEmailAddress = sendingEmailAddress,
             OperatorEmail = operatorEmail,
