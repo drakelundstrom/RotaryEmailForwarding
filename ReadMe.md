@@ -42,7 +42,7 @@ Runtime settings are resolved from environment variables or Azure App Settings:
 
 Azure environments use Key Vault references for `sendingEmailAddress`, `operatorEmail`, `supportEmail`, `sendingEmailPassword`, `databaseConnectionString`, `adminApiKey`, and the test-only `nonProductionSafeRecipient`.
 
-The infrastructure deployment creates the `EmailForwarding` Cosmos database and `ContactInfoAndRequests` container with `/Type` as the partition key. It also generates the `databaseConnectionString` Key Vault secret directly from the configured Cosmos account; do not create or maintain that secret manually.
+The infrastructure deployment treats the Cosmos account, database, and containers as existing shared resources. Production uses `ContactInfoAndRequests`, while test uses `TestContactInfoAndRequestsByType`. Both containers must use `/Type` as the partition key. The deployment generates the `databaseConnectionString` Key Vault secret directly from the configured Cosmos account; do not create or maintain that secret manually.
 
 Create or update these Key Vault secrets after the environment Key Vault exists and before relying on email delivery:
 
@@ -157,6 +157,6 @@ For `Rotarian` and `Other` submissions, `supportEmail` is copied on the outgoing
 
 ## Security and Retention
 
-Production and test use isolated Function Apps, Storage accounts, Key Vaults, and app settings. Both environments are configured to use the shared Cosmos account `studyabroadscholarshipsdb` in resource group `EmailForwardingApi`; deployment provisions the `EmailForwarding` database and the `ContactInfoAndRequests` container with 400 RU/s by default. Non-production email is routed to the `nonProductionSafeRecipient` Key Vault secret unless unsafe delivery is explicitly enabled.
+Production and test use isolated Function Apps, Storage accounts, Key Vaults, app settings, and Cosmos containers. Both environments use the existing Cosmos account `studyabroadscholarshipsdb` and `EmailForwarding` database in resource group `EmailForwardingApi`; production uses `ContactInfoAndRequests`, while test uses `TestContactInfoAndRequestsByType`. Non-production email is routed to the `nonProductionSafeRecipient` Key Vault secret unless unsafe delivery is explicitly enabled.
 
 Rotate Key Vault secrets per environment by creating a new secret version and restarting the Function App after validation. PII-bearing submissions and raw request logs should be retained only as long as the operating program requires; align Cosmos retention or scheduled purge jobs with the organization retention policy before production launch.

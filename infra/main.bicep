@@ -42,11 +42,6 @@ param cosmosDatabaseName string = 'EmailForwarding'
 @description('Cosmos DB SQL container name.')
 param cosmosContainerName string = 'ContactInfoAndRequests'
 
-@description('Provisioned throughput for the Cosmos DB SQL container.')
-@minValue(400)
-@maxValue(1000000)
-param cosmosContainerThroughput int = 400
-
 @description('Canonical SMTP host setting. Credentials are supplied through Key Vault.')
 param mailHost string = 'smtp.gmail.com'
 
@@ -213,26 +208,12 @@ resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' existi
   scope: resourceGroup(cosmosAccountResourceGroupName)
 }
 
-module cosmosResources 'cosmos.bicep' = {
-  name: 'cosmos-${environmentName}'
-  scope: resourceGroup(cosmosAccountResourceGroupName)
-  params: {
-    cosmosAccountName: cosmosAccountName
-    cosmosDatabaseName: cosmosDatabaseName
-    cosmosContainerName: cosmosContainerName
-    cosmosContainerThroughput: cosmosContainerThroughput
-  }
-}
-
 resource databaseConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   parent: keyVault
   name: 'databaseConnectionString'
   properties: {
     value: cosmosAccount.listConnectionStrings().connectionStrings[0].connectionString
   }
-  dependsOn: [
-    cosmosResources
-  ]
 }
 
 resource functionPlan 'Microsoft.Web/serverfarms@2024-04-01' = {
@@ -356,5 +337,3 @@ output functionAppName string = functionApp.name
 output functionAppUrl string = 'https://${functionApp.properties.defaultHostName}'
 output keyVaultName string = keyVault.name
 output cosmosAccountName string = cosmosAccount.name
-output cosmosDatabaseName string = cosmosResources.outputs.databaseName
-output cosmosContainerName string = cosmosResources.outputs.containerName
