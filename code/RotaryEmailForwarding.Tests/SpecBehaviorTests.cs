@@ -54,7 +54,7 @@ public sealed class SpecBehaviorTests
                 State = "Ohio",
                 City = "Cleveland",
                 Zipcode = "44102-1234",
-                OptionalSubmissionQuestion = "Can I choose a country?"
+                SubmissionQuestion = "Can I choose a country?"
             },
             "corr-1",
             CancellationToken.None);
@@ -204,7 +204,7 @@ public sealed class SpecBehaviorTests
                 ContactEmail = "rotarian@example.com",
                 CountryOfResidence = "United States",
                 Zipcode = "44102",
-                OptionalSubmissionQuestion = "How can our club help a student apply?"
+                SubmissionQuestion = "How can our club help a student apply?"
             },
             "corr-support-rotarian",
             CancellationToken.None);

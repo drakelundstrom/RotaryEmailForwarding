@@ -7,6 +7,9 @@ public sealed record InterestFormSubmissionRequest
 {
     public string? SubmissionType { get; init; }
 
+    public string? SubmissionQuestion { get; init; }
+
+    // Compatibility for clients that used the previous API property name.
     public string? OptionalSubmissionQuestion { get; init; }
 
     public string? Name { get; init; }

@@ -77,6 +77,48 @@ public sealed class SubmissionNormalizerTests
     }
 
     [Fact]
+    public void Request_MapsSubmissionQuestionIntoNormalizedSubmission()
+    {
+        var request = JsonSerializer.Deserialize<InterestFormSubmissionRequest>(
+            """
+            {
+              "SubmissionType": "Student",
+              "SubmissionQuestion": "Can I choose a country?"
+            }
+            """,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        Assert.NotNull(request);
+        Assert.Equal("Can I choose a country?", request.SubmissionQuestion);
+        Assert.False(request.UnhandledFields?.ContainsKey("SubmissionQuestion") ?? false);
+
+        var normalized = SubmissionNormalizer.Normalize(request, DateTimeOffset.UtcNow);
+
+        Assert.Equal("Can I choose a country?", normalized.OptionalSubmissionQuestion);
+    }
+
+    [Fact]
+    public void Normalize_PrefersSubmissionQuestionAndSupportsPreviousPropertyName()
+    {
+        var canonical = SubmissionNormalizer.Normalize(
+            new InterestFormSubmissionRequest
+            {
+                SubmissionQuestion = "Canonical question",
+                OptionalSubmissionQuestion = "Previous question"
+            },
+            DateTimeOffset.UtcNow);
+        var previous = SubmissionNormalizer.Normalize(
+            new InterestFormSubmissionRequest
+            {
+                OptionalSubmissionQuestion = "Previous question"
+            },
+            DateTimeOffset.UtcNow);
+
+        Assert.Equal("Canonical question", canonical.OptionalSubmissionQuestion);
+        Assert.Equal("Previous question", previous.OptionalSubmissionQuestion);
+    }
+
+    [Fact]
     public void Normalize_StudentSubmissionUsesStudentAndParentContactFields()
     {
         var normalized = SubmissionNormalizer.Normalize(
@@ -92,7 +134,7 @@ public sealed class SubmissionNormalizerTests
                 ParentPhone = "555-0101",
                 ContactEmail = "contact@example.com",
                 ContactPhone = "555-0102",
-                OptionalSubmissionQuestion = "Can I choose a country?"
+                SubmissionQuestion = "Can I choose a country?"
             },
             DateTimeOffset.UtcNow);
 
