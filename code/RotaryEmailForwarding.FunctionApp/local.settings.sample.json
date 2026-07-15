@@ -5,7 +5,7 @@
     "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
     "appEnvironment": "local",
     "cosmosDatabaseName": "EmailForwarding",
-    "cosmosContainerName": "ContactInfoAndRequests",
+    "cosmosContainerName": "ContactInfoAndRequestsByType",
     "databaseConnectionString": "",
     "sendingEmailAddress": "sender@example.test",
     "operatorEmail": "operator@example.test",

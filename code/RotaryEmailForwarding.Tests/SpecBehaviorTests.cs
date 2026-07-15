@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Configuration;
+using MimeKit;
 using Newtonsoft.Json;
 using RotaryEmailForwarding.FunctionApp.Configuration;
 using RotaryEmailForwarding.FunctionApp.Domain;
@@ -661,6 +662,25 @@ public sealed class SpecBehaviorTests
 
         Assert.Equal(OutboundEmailAttemptStatus.TerminalFailed, result.Status);
         Assert.Equal("UnsafeNonProductionEmailBlocked", result.ProviderCode);
+    }
+
+    [Fact]
+    public void SmtpSender_PutsAllRecipientsOnOneVisibleToHeader()
+    {
+        var mimeMessage = SmtpEmailSender.BuildMimeMessage(
+            new OutboundEmailMessage(
+                "message",
+                OutboundEmailMessageType.DistrictRepresentative,
+                ["representative@example.com", "student@example.com", "parent@example.com"],
+                "subject",
+                "body"),
+            "sender@example.com",
+            ["representative@example.com", "student@example.com", "parent@example.com"]);
+
+        Assert.Equal(
+            ["representative@example.com", "student@example.com", "parent@example.com"],
+            mimeMessage.To.Mailboxes.Select(mailbox => mailbox.Address));
+        Assert.Single(mimeMessage.Headers, header => header.Id == HeaderId.To);
     }
 
     [Fact]

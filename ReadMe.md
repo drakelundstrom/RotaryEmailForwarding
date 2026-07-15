@@ -42,7 +42,7 @@ Runtime settings are resolved from environment variables or Azure App Settings:
 
 Azure environments use Key Vault references for `sendingEmailAddress`, `operatorEmail`, `supportEmail`, `sendingEmailPassword`, `databaseConnectionString`, `adminApiKey`, and the test-only `nonProductionSafeRecipient`.
 
-The infrastructure deployment creates the `EmailForwarding` Cosmos database and `ContactInfoAndRequests` container with `/Type` as the partition key. It also generates the `databaseConnectionString` Key Vault secret directly from the configured Cosmos account; do not create or maintain that secret manually.
+The infrastructure deployment treats the Cosmos account, database, and containers as existing shared resources. Production uses `ContactInfoAndRequests`, while test uses `TestContactInfoAndRequestsByType`. Both containers must use `/Type` as the partition key. The deployment generates the `databaseConnectionString` Key Vault secret directly from the configured Cosmos account; do not create or maintain that secret manually.
 
 Create or update these Key Vault secrets after the environment Key Vault exists and before relying on email delivery:
 
@@ -76,7 +76,7 @@ Flex Consumption does not support `WEBSITE_TIME_ZONE`, so the retry trigger wake
 
 ## Email Examples
 
-The examples below show representative HTML email output rendered by `EmailTemplateService` for common routing paths. Blank or null form fields are omitted from the information block. If both `StudentEmail` and `ParentEmail` are provided, both are included as recipients. Top-level `<p>` elements are split onto separate lines here for readability.
+The examples below show representative HTML email output rendered by `EmailTemplateService` for common routing paths. Blank or null form fields are omitted from the information block. Each submission produces one email: all applicable representatives, students, and parents are included together on that email's `To` line. Top-level `<p>` elements are split onto separate lines here for readability.
 
 ### Student routed to one district
 
@@ -157,6 +157,6 @@ For `Rotarian` and `Other` submissions, `supportEmail` is copied on the outgoing
 
 ## Security and Retention
 
-Production and test use isolated Function Apps, Storage accounts, Key Vaults, and app settings. Both environments are configured to use the shared Cosmos account `studyabroadscholarshipsdb` in resource group `EmailForwardingApi`; deployment provisions the `EmailForwarding` database and the `ContactInfoAndRequests` container with 400 RU/s by default. Non-production email is routed to the `nonProductionSafeRecipient` Key Vault secret unless unsafe delivery is explicitly enabled.
+Production and test use isolated Function Apps, Storage accounts, Key Vaults, app settings, and Cosmos containers. Both environments use the existing Cosmos account `studyabroadscholarshipsdb` and `EmailForwarding` database in resource group `EmailForwardingApi`; production uses `ContactInfoAndRequests`, while test uses `TestContactInfoAndRequestsByType`. Non-production email is routed to the `nonProductionSafeRecipient` Key Vault secret unless unsafe delivery is explicitly enabled.
 
 Rotate Key Vault secrets per environment by creating a new secret version and restarting the Function App after validation. PII-bearing submissions and raw request logs should be retained only as long as the operating program requires; align Cosmos retention or scheduled purge jobs with the organization retention policy before production launch.
