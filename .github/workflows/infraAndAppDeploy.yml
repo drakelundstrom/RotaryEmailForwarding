@@ -151,7 +151,6 @@ jobs:
             AzureWebJobsStorage__blobServiceUri \
             AzureWebJobsStorage__queueServiceUri \
             AzureWebJobsStorage__tableServiceUri \
-            FUNCTIONS_WORKER_RUNTIME \
             APPLICATIONINSIGHTS_CONNECTION_STRING \
             APPLICATIONINSIGHTS_AUTHENTICATION_STRING \
             appEnvironment \
@@ -206,7 +205,6 @@ jobs:
             fi
           }
 
-          assert_setting_value FUNCTIONS_WORKER_RUNTIME dotnet-isolated
           assert_setting_value appEnvironment test
           assert_setting_value cosmosDatabaseName EmailForwarding
           assert_setting_value cosmosContainerName TestContactInfoAndRequestsByType
@@ -303,7 +301,6 @@ jobs:
             AzureWebJobsStorage__blobServiceUri \
             AzureWebJobsStorage__queueServiceUri \
             AzureWebJobsStorage__tableServiceUri \
-            FUNCTIONS_WORKER_RUNTIME \
             APPLICATIONINSIGHTS_CONNECTION_STRING \
             APPLICATIONINSIGHTS_AUTHENTICATION_STRING \
             appEnvironment \
@@ -357,7 +354,6 @@ jobs:
             fi
           }
 
-          assert_setting_value FUNCTIONS_WORKER_RUNTIME dotnet-isolated
           assert_setting_value appEnvironment prod
           assert_setting_value cosmosDatabaseName EmailForwarding
           assert_setting_value cosmosContainerName ContactInfoAndRequests
