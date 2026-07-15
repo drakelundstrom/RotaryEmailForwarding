@@ -86,7 +86,6 @@ var functionAppSettings = {
   AzureWebJobsStorage__blobServiceUri: 'https://${storage.name}.blob.${environment().suffixes.storage}'
   AzureWebJobsStorage__queueServiceUri: 'https://${storage.name}.queue.${environment().suffixes.storage}'
   AzureWebJobsStorage__tableServiceUri: 'https://${storage.name}.table.${environment().suffixes.storage}'
-  FUNCTIONS_WORKER_RUNTIME: 'dotnet-isolated'
   APPLICATIONINSIGHTS_CONNECTION_STRING: applicationInsights.properties.ConnectionString
   APPLICATIONINSIGHTS_AUTHENTICATION_STRING: 'Authorization=AAD'
   appEnvironment: environmentName
