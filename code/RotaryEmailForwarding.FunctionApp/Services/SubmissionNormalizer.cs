@@ -34,7 +34,8 @@ public static class SubmissionNormalizer
         {
             Id = Guid.NewGuid().ToString("D", CultureInfo.InvariantCulture),
             SubmissionType = TrimToNull(request.SubmissionType),
-            OptionalSubmissionQuestion = TrimToNull(request.OptionalSubmissionQuestion),
+            OptionalSubmissionQuestion = TrimToNull(request.SubmissionQuestion)
+                ?? TrimToNull(request.OptionalSubmissionQuestion),
             Name = TrimToNull(request.Name),
             Age = TrimToNull(request.Age),
             ParentEnteredAge = TrimToNull(request.ParentEnteredAge),

@@ -40,7 +40,7 @@ param cosmosAccountResourceGroupName string
 param cosmosDatabaseName string = 'EmailForwarding'
 
 @description('Cosmos DB SQL container name.')
-param cosmosContainerName string = 'ContactInfoAndRequests'
+param cosmosContainerName string = 'ContactInfoAndRequestsByType'
 
 @description('Canonical SMTP host setting. Credentials are supplied through Key Vault.')
 param mailHost string = 'smtp.gmail.com'

@@ -54,7 +54,7 @@ public sealed class SpecBehaviorTests
                 State = "Ohio",
                 City = "Cleveland",
                 Zipcode = "44102-1234",
-                OptionalSubmissionQuestion = "Can I choose a country?"
+                SubmissionQuestion = "Can I choose a country?"
             },
             "corr-1",
             CancellationToken.None);
@@ -67,11 +67,15 @@ public sealed class SpecBehaviorTests
             ["rep@example.com", "jordan@example.com", "parent@example.com"],
             message.Recipients);
         Assert.True(message.IsBodyHtml);
-        Assert.Contains("<p>Hello RYE District 6630 Representatives,</p>", message.Body);
+        Assert.Contains("<p>Hello Jordan Example,</p>", message.Body);
+        Assert.Contains("<p><strong><u>For the submitting student:</u></strong></p>", message.Body);
         Assert.Contains(
-            "has submitted a Rotary Youth Exchange contact form on the Study Abroad Scholarships website at <a href=\"https://studyabroadscholarships.org/\">studyabroadscholarships.org</a>.",
+            "Thank you for reaching out to learn more about the Study Abroad Scholarships offered as part of Rotary Youth Exchange.",
             message.Body);
-        Assert.Contains("told to expect a follow up within 2 weeks", message.Body);
+        Assert.Contains("representatives from District 6630 have been added to this email", message.Body);
+        Assert.Contains("reply all to ask your questions", message.Body);
+        Assert.Contains("reply within 2 weeks with information about how the program works in your area", message.Body);
+        Assert.Contains("<p><strong><u>For the Rotary representative:</u></strong></p>", message.Body);
         Assert.Contains("operator@example.com", message.Body);
         Assert.Contains("<strong>Who are you?:</strong> Student", message.Body);
         Assert.Contains("<strong>Name:</strong> Jordan Example", message.Body);
@@ -199,13 +203,26 @@ public sealed class SpecBehaviorTests
                 Name = "Rotarian Example",
                 ContactEmail = "rotarian@example.com",
                 CountryOfResidence = "United States",
-                Zipcode = "44102"
+                Zipcode = "44102",
+                SubmissionQuestion = "How can our club help a student apply?"
             },
             "corr-support-rotarian",
             CancellationToken.None);
 
         var rotarianMessage = Assert.Single(rotarianSender.SentMessages);
-        Assert.Contains("support@example.com", rotarianMessage.Recipients);
+        Assert.Equal(
+            ["rep@example.com", "rotarian@example.com", "support@example.com"],
+            rotarianMessage.Recipients);
+        Assert.Equal("Rotary Youth Exchange question from Rotarian Example", rotarianMessage.Subject);
+        Assert.Contains("<p>Hello fellow Rotarian,</p>", rotarianMessage.Body);
+        Assert.Contains("<p><strong><u>For the submitting Rotarian:</u></strong></p>", rotarianMessage.Body);
+        Assert.Contains("Thank you for participating in Rotary Youth Exchange", rotarianMessage.Body);
+        Assert.Contains("Study Abroad Scholarships offered as part of the program", rotarianMessage.Body);
+        Assert.Contains("representatives from District 6630 and our support team have been added", rotarianMessage.Body);
+        Assert.Contains("reply all with any additional details or questions", rotarianMessage.Body);
+        Assert.Contains("<strong>Question:</strong> How can our club help a student apply?", rotarianMessage.Body);
+        Assert.Contains("<p><strong><u>For the Rotary representatives and support team:</u></strong></p>", rotarianMessage.Body);
+        Assert.Contains("This question was submitted by a fellow Rotarian.", rotarianMessage.Body);
 
         var otherSender = new FakeEmailSender();
         var otherWorkflow = BuildWorkflow(repository, otherSender, supportEmail: "support@example.com");
