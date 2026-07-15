@@ -282,6 +282,13 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
     }
     siteConfig: {
       minTlsVersion: '1.2'
+      cors: {
+        allowedOrigins: [
+          'https://portal.azure.com'
+          'https://ms.portal.azure.com'
+        ]
+        supportCredentials: true
+      }
     }
   }
 }
