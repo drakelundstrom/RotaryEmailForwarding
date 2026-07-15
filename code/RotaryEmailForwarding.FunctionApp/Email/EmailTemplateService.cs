@@ -73,10 +73,10 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
             $"district:{submission.Id}",
             OutboundEmailMessageType.DistrictRepresentative,
             recipients,
-            $"Rotary Youth Exchange interest from {UnknownIfBlank(submission.Name)}",
+            BuildForwardingSubject(submission),
             BuildSharedBody(
-                BuildDistrictGreeting(route),
-                BuildDistrictIntro(route),
+                BuildSubmitterGreeting(submission),
+                BuildDistrictIntro(submission, route),
                 submission,
                 "your district"),
             true);
@@ -97,13 +97,10 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
             $"country:{submission.Id}",
             OutboundEmailMessageType.CountryRepresentative,
             recipients,
-            $"Rotary Youth Exchange interest from {UnknownIfBlank(submission.Name)}",
+            BuildForwardingSubject(submission),
             BuildSharedBody(
-                $"Hello RYE {Html(GetDisplayCountryName(country))} Representatives,",
-                [
-                    $"An interested person in your country has submitted a Rotary Youth Exchange contact form on the Study Abroad Scholarships website at {SiteLink()}.",
-                    "They have been told to expect a follow up within 2 weeks."
-                ],
+                BuildSubmitterGreeting(submission),
+                BuildCountryIntro(submission, country),
                 submission,
                 "your country"),
             true);
@@ -124,12 +121,8 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
             recipients,
             "Rotary Youth Exchange interest needs routing review",
             BuildSharedBody(
-                "Hello,",
-                [
-                    $"An interested person has submitted a Rotary Youth Exchange contact form on the Study Abroad Scholarships website at {SiteLink()}.",
-                    "The automated system was not able to resolve where this submission should be forwarded, so an admin should review it.",
-                    "The submitter should expect a follow up within 2 weeks."
-                ],
+                BuildSubmitterGreeting(submission),
+                BuildManualRoutingIntro(submission),
                 submission,
                 "this submission",
                 route.Errors),
@@ -166,35 +159,112 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
         }
     }
 
-    private static string BuildDistrictGreeting(SubmissionRoute route)
+    private static string BuildSubmitterGreeting(NormalizedInterestFormSubmission submission)
     {
-        var districtNames = route.DistrictContacts
-            .Select(contact => FormatDistrictForGreeting(contact.District))
-            .ToList();
-
-        return districtNames.Count == 0
-            ? "Hello RYE District Representatives,"
-            : $"Hello RYE {Html(JoinForSentence(districtNames))} Representatives,";
+        return string.IsNullOrWhiteSpace(submission.Name)
+            ? "Hello,"
+            : $"Hello {Html(submission.Name.Trim())},";
     }
 
-    private static IReadOnlyList<string> BuildDistrictIntro(SubmissionRoute route)
+    private static string BuildForwardingSubject(NormalizedInterestFormSubmission submission)
+    {
+        var purpose = IsRotarianSubmission(submission) ? "question" : "interest";
+        return $"Rotary Youth Exchange {purpose} from {UnknownIfBlank(submission.Name)}";
+    }
+
+    private static IReadOnlyList<string> BuildDistrictIntro(
+        NormalizedInterestFormSubmission submission,
+        SubmissionRoute route)
     {
         if (!route.HasMultipleDistrictMatches)
         {
+            var districtName = route.DistrictContacts.Count == 0
+                ? "your local district"
+                : FormatDistrictForGreeting(route.DistrictContacts[0].District);
+
+            if (IsRotarianSubmission(submission))
+            {
+                return
+                [
+                    "Thank you for reaching out with your Rotary Youth Exchange question.",
+                    $"The Rotary Youth Exchange representatives from {Html(districtName)} and our support team have been added to this email, so you can reply all with any additional details or questions.",
+                    "They should reply within 2 weeks with guidance specific to your area."
+                ];
+            }
+
             return
             [
-                $"An interested person in your district has submitted a Rotary Youth Exchange contact form on the Study Abroad Scholarships website at {SiteLink()}.",
-                "They have been informed of the relevant Rotary district and told to expect a follow up within 2 weeks."
+                "Thank you for reaching out to learn more about Rotary Youth Exchange.",
+                $"Your local Rotary Youth Exchange representatives from {Html(districtName)} have been added to this email, so you can reply all to ask your questions.",
+                "They should reply within 2 weeks with information about how the program works in your area."
             ];
         }
 
         var districtNames = JoinForSentence(route.DistrictContacts.Select(contact => FormatDistrictForGreeting(contact.District)));
+        if (IsRotarianSubmission(submission))
+        {
+            return
+            [
+                "Thank you for reaching out with your Rotary Youth Exchange question.",
+                $"Your location matched multiple Rotary districts ({Html(districtNames)}), so representatives from each district and our support team have been added to this email. You can reply all with any additional details or questions.",
+                "They should reply within 2 weeks with guidance specific to your area."
+            ];
+        }
+
         return
         [
-            $"An interested person has submitted a Rotary Youth Exchange contact form on the Study Abroad Scholarships website at {SiteLink()}.",
-            $"This submission matched multiple Rotary districts ({Html(districtNames)}), so all matching districts have been included.",
-            "The submitter should expect a follow up within 2 weeks."
+            "Thank you for reaching out to learn more about Rotary Youth Exchange.",
+            $"Your location matched multiple Rotary districts ({Html(districtNames)}), so representatives from each district have been added to this email. You can reply all to ask your questions.",
+            "They should reply within 2 weeks with information about how the program works in your area."
         ];
+    }
+
+    private static IReadOnlyList<string> BuildCountryIntro(
+        NormalizedInterestFormSubmission submission,
+        string? country)
+    {
+        var displayCountry = Html(GetDisplayCountryName(country));
+        if (IsRotarianSubmission(submission))
+        {
+            return
+            [
+                "Thank you for reaching out with your Rotary Youth Exchange question.",
+                $"The Rotary Youth Exchange representatives for {displayCountry} and our support team have been added to this email, so you can reply all with any additional details or questions.",
+                "They should reply within 2 weeks with guidance specific to your area."
+            ];
+        }
+
+        return
+        [
+            "Thank you for reaching out to learn more about Rotary Youth Exchange.",
+            $"The Rotary Youth Exchange representatives for {displayCountry} have been added to this email, so you can reply all to ask your questions.",
+            "They should reply within 2 weeks with information about how the program works in your area."
+        ];
+    }
+
+    private static IReadOnlyList<string> BuildManualRoutingIntro(NormalizedInterestFormSubmission submission)
+    {
+        if (IsRotarianSubmission(submission))
+        {
+            return
+            [
+                "Thank you for reaching out with your Rotary Youth Exchange question.",
+                "We could not automatically identify the Rotary Youth Exchange representatives for your area, so our admin and support teams have been added to this email to review your request.",
+                "They should reply within 2 weeks with guidance about the next steps."
+            ];
+        }
+
+        return
+        [
+            "Thank you for reaching out to learn more about Rotary Youth Exchange.",
+            "We could not automatically identify the Rotary Youth Exchange representatives for your area, so our admin team has been added to this email to review your request.",
+            "The admin team should reply within 2 weeks with information about the next steps."
+        ];
+    }
+
+    private static bool IsRotarianSubmission(NormalizedInterestFormSubmission submission)
+    {
+        return SubmissionNormalizer.GetSubmitterType(submission.SubmissionType) == InterestFormSubmitterType.Rotarian;
     }
 
     private static string FormatDistrictForGreeting(string? district)
@@ -220,7 +290,7 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
         sections.AddRange(introParagraphs.Select(Paragraph));
         sections.AddRange(
         [
-            Paragraph("Here is the information from the form submission:"),
+            Paragraph("For reference, here is the information you submitted:"),
             SubmissionInformationBlock(submission)
         ]);
 
@@ -229,8 +299,11 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
             sections.Add(Paragraph($"Routing notes: {Html(string.Join("; ", routingErrors))}"));
         }
 
-        sections.Add(Paragraph($"If you have any admin support questions, advice for the process, need to add or remove email addresses for {Html(supportContext)}, or want a list of previous submissions, please reach out to {SupportEmailLink()}."));
-        sections.Add(Paragraph($"Thank you for your support of {SiteLink()}!"));
+        sections.Add(Paragraph($"For the Rotary representatives: if you have any admin support questions, need advice about the process, need to add or remove email addresses for {Html(supportContext)}, or want a list of previous submissions, please contact {SupportEmailLink()}."));
+        var closing = IsRotarianSubmission(submission)
+            ? $"Thank you for supporting Rotary Youth Exchange through {SiteLink()}!"
+            : $"Thank you for your interest in Rotary Youth Exchange through {SiteLink()}!";
+        sections.Add(Paragraph(closing));
 
         return string.Join(Environment.NewLine, sections);
     }

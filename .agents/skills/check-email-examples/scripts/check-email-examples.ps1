@@ -22,11 +22,50 @@ foreach ($pattern in $stalePatterns) {
     }
 }
 
+$emailSectionMatch = [regex]::Match(
+    $readme,
+    '(?ms)^## Email Examples\r?\n(?<section>.*?)(?=^## |\z)'
+)
+if (-not $emailSectionMatch.Success) {
+    throw "README Email Examples section was not found."
+}
+
+$emailSection = $emailSectionMatch.Groups['section'].Value
+$sourceMatches = [regex]::Matches(
+    $emailSection,
+    '(?ms)#### HTML source\r?\n\r?\n```html\r?\n(?<body>.*?)\r?\n```'
+)
+$renderedMatches = [regex]::Matches(
+    $emailSection,
+    '(?ms)#### Rendered body\r?\n\r?\n<!-- email-example-rendered:start -->\r?\n(?<body>.*?)\r?\n<!-- email-example-rendered:end -->'
+)
+
+if ($sourceMatches.Count -eq 0 -or $sourceMatches.Count -ne $renderedMatches.Count) {
+    throw "Every README email example must include paired HTML source and rendered body views. Found $($sourceMatches.Count) source blocks and $($renderedMatches.Count) rendered blocks."
+}
+
+for ($index = 0; $index -lt $sourceMatches.Count; $index++) {
+    $sourceBody = $sourceMatches[$index].Groups['body'].Value -replace "`r`n", "`n"
+    $renderedBody = $renderedMatches[$index].Groups['body'].Value -replace "`r`n", "`n"
+    if ($sourceBody -cne $renderedBody) {
+        throw "README email example $($index + 1) has different HTML source and rendered body content."
+    }
+}
+
 $requiredSnippets = @(
     'The examples below show representative HTML email output rendered by `EmailTemplateService`',
-    '<p>Hello RYE District 6630 Representatives,</p>',
-    '<p>Hello RYE District 6630 and District 6650 Representatives,</p>',
-    '<p>Hello RYE Mexico Representatives,</p>',
+    '<p>Hello Jordan Rivera,</p>',
+    '<p>Hello Morgan Chen,</p>',
+    '<p>Hello Pat Nguyen,</p>',
+    '<p>Hello Alex Martinez,</p>',
+    '<p>Hello Taylor Brooks,</p>',
+    'reply all to ask your questions',
+    'reply within 2 weeks with information about how the program works in your area',
+    'Subject: Rotary Youth Exchange question from Morgan Chen',
+    'support@example.test',
+    'Thank you for reaching out with your Rotary Youth Exchange question.',
+    '<strong>Question:</strong> How can our club help a student apply?',
+    'Thank you for supporting Rotary Youth Exchange',
     '<strong>Question:</strong> Can I choose a country?',
     '<strong>Question:</strong> Is there an application deadline?',
     '<p>Routing notes: Zipcode missing for district routing</p>'
