@@ -73,7 +73,8 @@ public sealed class SpecBehaviorTests
             "Thank you for reaching out to learn more about the Study Abroad Scholarships offered as part of Rotary Youth Exchange.",
             message.Body);
         Assert.Contains("representatives from District 6630 have been added to this email", message.Body);
-        Assert.Contains("reply all to ask your questions", message.Body);
+        Assert.Contains("choose <strong>&ldquo;Reply all&rdquo;</strong> when you ask your questions", message.Body);
+        Assert.Contains("To make sure everyone sees your message", message.Body);
         Assert.Contains("reply within 2 weeks with information about how the program works in your area", message.Body);
         Assert.Contains("<p><strong><u>For the Rotary representative:</u></strong></p>", message.Body);
         Assert.Contains("operator@example.com", message.Body);
@@ -219,7 +220,8 @@ public sealed class SpecBehaviorTests
         Assert.Contains("Thank you for participating in Rotary Youth Exchange", rotarianMessage.Body);
         Assert.Contains("Study Abroad Scholarships offered as part of the program", rotarianMessage.Body);
         Assert.Contains("representatives from District 6630 and our support team have been added", rotarianMessage.Body);
-        Assert.Contains("reply all with any additional details or questions", rotarianMessage.Body);
+        Assert.Contains("choose <strong>&ldquo;Reply all&rdquo;</strong> when sending additional details or questions", rotarianMessage.Body);
+        Assert.Contains("To keep every representative and the support team included", rotarianMessage.Body);
         Assert.Contains("<strong>Question:</strong> How can our club help a student apply?", rotarianMessage.Body);
         Assert.Contains("<p><strong><u>For the Rotary representatives and support team:</u></strong></p>", rotarianMessage.Body);
         Assert.Contains("This question was submitted by a fellow Rotarian.", rotarianMessage.Body);

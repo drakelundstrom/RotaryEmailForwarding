@@ -195,7 +195,8 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
                 return
                 [
                     "Thank you for participating in Rotary Youth Exchange and for reaching out with your question about the Study Abroad Scholarships offered as part of the program.",
-                    $"The Rotary Youth Exchange representatives from {Html(districtName)} and our support team have been added to this email, so you can reply all with any additional details or questions.",
+                    $"The Rotary Youth Exchange representatives from {Html(districtName)} and our support team have been added to this email.",
+                    "To keep every representative and the support team included, choose <strong>&ldquo;Reply all&rdquo;</strong> when sending additional details or questions.",
                     "They should reply within 2 weeks with guidance specific to your area."
                 ];
             }
@@ -203,7 +204,8 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
             return
             [
                 "Thank you for reaching out to learn more about the Study Abroad Scholarships offered as part of Rotary Youth Exchange.",
-                $"Your local Rotary Youth Exchange representatives from {Html(districtName)} have been added to this email, so you can reply all to ask your questions.",
+                $"Your local Rotary Youth Exchange representatives from {Html(districtName)} have been added to this email.",
+                "To make sure everyone sees your message, choose <strong>&ldquo;Reply all&rdquo;</strong> when you ask your questions.",
                 "They should reply within 2 weeks with information about how the program works in your area."
             ];
         }
@@ -214,7 +216,8 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
             return
             [
                 "Thank you for participating in Rotary Youth Exchange and for reaching out with your question about the Study Abroad Scholarships offered as part of the program.",
-                $"Your location matched multiple Rotary districts ({Html(districtNames)}), so representatives from each district and our support team have been added to this email. You can reply all with any additional details or questions.",
+                $"Your location matched multiple Rotary districts ({Html(districtNames)}), so representatives from each district and our support team have been added to this email.",
+                "To keep every representative and the support team included, choose <strong>&ldquo;Reply all&rdquo;</strong> when sending additional details or questions.",
                 "They should reply within 2 weeks with guidance specific to your area."
             ];
         }
@@ -222,7 +225,8 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
         return
         [
             "Thank you for reaching out to learn more about the Study Abroad Scholarships offered as part of Rotary Youth Exchange.",
-            $"Your location matched multiple Rotary districts ({Html(districtNames)}), so representatives from each district have been added to this email. You can reply all to ask your questions.",
+            $"Your location matched multiple Rotary districts ({Html(districtNames)}), so representatives from each district have been added to this email.",
+            "To make sure everyone sees your message, choose <strong>&ldquo;Reply all&rdquo;</strong> when you ask your questions.",
             "They should reply within 2 weeks with information about how the program works in your area."
         ];
     }
@@ -237,7 +241,8 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
             return
             [
                 "Thank you for participating in Rotary Youth Exchange and for reaching out with your question about the Study Abroad Scholarships offered as part of the program.",
-                $"The Rotary Youth Exchange representatives for {displayCountry} and our support team have been added to this email, so you can reply all with any additional details or questions.",
+                $"The Rotary Youth Exchange representatives for {displayCountry} and our support team have been added to this email.",
+                "To keep every representative and the support team included, choose <strong>&ldquo;Reply all&rdquo;</strong> when sending additional details or questions.",
                 "They should reply within 2 weeks with guidance specific to your area."
             ];
         }
@@ -245,7 +250,8 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
         return
         [
             "Thank you for reaching out to learn more about the Study Abroad Scholarships offered as part of Rotary Youth Exchange.",
-            $"The Rotary Youth Exchange representatives for {displayCountry} have been added to this email, so you can reply all to ask your questions.",
+            $"The Rotary Youth Exchange representatives for {displayCountry} have been added to this email.",
+            "To make sure everyone sees your message, choose <strong>&ldquo;Reply all&rdquo;</strong> when you ask your questions.",
             "They should reply within 2 weeks with information about how the program works in your area."
         ];
     }
