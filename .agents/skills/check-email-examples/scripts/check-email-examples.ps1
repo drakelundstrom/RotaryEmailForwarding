@@ -57,7 +57,8 @@ $requiredSnippets = @(
     '<p>Hello Jordan Rivera,</p>',
     '<p>Hello fellow Rotarian,</p>',
     '<p>Hello Pat Nguyen,</p>',
-    '<p>Hello Alex Martinez,</p>',
+    'Mexico emails are written in Spanish. Canada emails contain the complete English version first and the complete French version second.',
+    '<p>Hola, Alex Martinez:</p>',
     '<p>Hello Taylor Brooks,</p>',
     '<strong>&ldquo;Reply all&rdquo;</strong>',
     'To make sure everyone sees your message',
@@ -75,7 +76,9 @@ $requiredSnippets = @(
     '<strong>Question:</strong> How can our club help a student apply?',
     'supporting the Study Abroad Scholarships',
     '<strong>Question:</strong> Can I choose a country?',
-    '<strong>Question:</strong> Is there an application deadline?',
+    '<strong>Pregunta:</strong> Is there an application deadline?',
+    '<strong>País de residencia:</strong> M&#233;xico',
+    '<strong>&laquo;Responder a todos&raquo;</strong>',
     '<p>Routing notes: Zipcode missing for district routing</p>'
 )
 

@@ -96,6 +96,94 @@ public sealed class SpecBehaviorTests
     }
 
     [Fact]
+    public async Task Workflow_CanadaEmailIsEnglishThenFrench()
+    {
+        var repository = new InMemoryApplicationRepository();
+        await repository.UpsertDistrictContactsAsync(
+            [
+                new ContactsForDistrict
+                {
+                    Country = "canada",
+                    District = "5550",
+                    EmailAddresses = ["rep@example.com"],
+                    ZipCodes = ["M5V"]
+                }
+            ],
+            CancellationToken.None);
+
+        var sender = new FakeEmailSender();
+        var workflow = BuildWorkflow(repository, sender);
+        await workflow.ProcessAsync(
+            new InterestFormSubmissionRequest
+            {
+                SubmissionType = "Student",
+                Name = "Jordan Example",
+                StudentEmail = "jordan@example.com",
+                CountryOfResidence = "Canada",
+                State = "Ontario",
+                City = "Toronto",
+                Zipcode = "M5V 2T6"
+            },
+            "corr-canada-language",
+            CancellationToken.None);
+
+        var message = Assert.Single(sender.SentMessages);
+        Assert.Equal(
+            "Rotary Youth Exchange interest from Jordan Example / Intérêt pour les échanges de jeunes du Rotary de Jordan Example",
+            message.Subject);
+
+        var englishGreeting = message.Body.IndexOf("<p>Hello Jordan Example,</p>", StringComparison.Ordinal);
+        var divider = message.Body.IndexOf("<hr>", StringComparison.Ordinal);
+        var frenchGreeting = message.Body.IndexOf("<p>Bonjour Jordan Example,</p>", StringComparison.Ordinal);
+        Assert.True(englishGreeting >= 0 && englishGreeting < divider && divider < frenchGreeting);
+        Assert.Contains("<strong>Country of residence:</strong> Canada", message.Body);
+        Assert.Contains("<strong>Pays de résidence:</strong> Canada", message.Body);
+        Assert.Contains("<strong>Qui êtes-vous?:</strong> &#201;l&#232;ve", message.Body);
+        Assert.Contains("Répondre à tous", message.Body);
+    }
+
+    [Fact]
+    public async Task Workflow_MexicoEmailIsSpanishOnly()
+    {
+        var repository = new InMemoryApplicationRepository();
+        await repository.UpsertCountryContactsAsync(
+            [
+                new ContactsForCountry
+                {
+                    Country = "mexico",
+                    EmailAddresses = ["country@example.com"],
+                    IsCertified = true
+                }
+            ],
+            CancellationToken.None);
+
+        var sender = new FakeEmailSender();
+        var workflow = BuildWorkflow(repository, sender);
+        await workflow.ProcessAsync(
+            new InterestFormSubmissionRequest
+            {
+                SubmissionType = "Parent",
+                Name = "Alex Martinez",
+                ContactEmail = "alex@example.com",
+                CountryOfResidence = "Mexico",
+                City = "Monterrey",
+                SubmissionQuestion = "¿Cuál es la fecha límite?"
+            },
+            "corr-mexico-language",
+            CancellationToken.None);
+
+        var message = Assert.Single(sender.SentMessages);
+        Assert.Equal("Interés en el Intercambio de Jóvenes de Rotary de Alex Martinez", message.Subject);
+        Assert.Contains("<p>Hola, Alex Martinez:</p>", message.Body);
+        Assert.Contains("<strong>¿Quién es usted?:</strong> Padre, madre o tutor", message.Body);
+        Assert.Contains("<strong>País de residencia:</strong> M&#233;xico", message.Body);
+        Assert.Contains("<strong>Pregunta:</strong> &#191;Cu&#225;l es la fecha l&#237;mite?", message.Body);
+        Assert.Contains("Responder a todos", message.Body);
+        Assert.DoesNotContain("Thank you for reaching out", message.Body);
+        Assert.DoesNotContain("<hr>", message.Body);
+    }
+
+    [Fact]
     public async Task Workflow_QuotaFailureLeavesSubmissionRetryPendingAndUnsent()
     {
         var repository = new InMemoryApplicationRepository();

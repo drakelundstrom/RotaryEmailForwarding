@@ -76,7 +76,7 @@ Flex Consumption does not support `WEBSITE_TIME_ZONE`, so the retry trigger wake
 
 ## Email Examples
 
-The examples below show representative HTML email output rendered by `EmailTemplateService` for every routing variation and the Rotarian-specific variation. Each body is shown as literal HTML source followed by a rendered preview of that same HTML. Blank or null form fields are omitted from the information block, including the optional `Question` line. Examples with and without a submitted question are included below. Each submission produces one email: all applicable representatives, submitters, students, parents, and support recipients are included together on that email's `To` line so the submitter can use **“Reply all”**. Top-level `<p>` elements are split onto separate lines here for readability.
+The examples below show representative HTML email output rendered by `EmailTemplateService` for every routing variation and the Rotarian-specific variation. Mexico emails are written in Spanish. Canada emails contain the complete English version first and the complete French version second. Each body is shown as literal HTML source followed by a rendered preview of that same HTML. Blank or null form fields are omitted from the information block, including the optional `Question` line. Examples with and without a submitted question are included below. Each submission produces one email: all applicable representatives, submitters, students, parents, and support recipients are included together on that email's `To` line so the submitter can use **“Reply all”**. Top-level `<p>` elements are split onto separate lines here for readability.
 
 ### Student routed to one district (with a question)
 
@@ -196,38 +196,38 @@ Subject: Rotary Youth Exchange interest from Pat Nguyen
 
 To: mexico-coordinator@example.org, contact@example.com
 
-Subject: Rotary Youth Exchange interest from Alex Martinez
+Subject: Interés en el Intercambio de Jóvenes de Rotary de Alex Martinez
 
 #### HTML source
 
 ```html
-<p>Hello Alex Martinez,</p>
-<p><strong><u>For the submitting family:</u></strong></p>
-<p>Thank you for reaching out to learn more about the Study Abroad Scholarships offered as part of Rotary Youth Exchange.</p>
-<p>The Rotary Youth Exchange representatives for Mexico have been added to this email.</p>
-<p>To make sure everyone sees your message, choose <strong>&ldquo;Reply all&rdquo;</strong> when you ask your questions.</p>
-<p>They should reply within 2 weeks with information about how the program works in your area.</p>
-<p>For reference, here is the information you submitted:</p>
-<p><strong>Who are you?:</strong> Parent<br><strong>Name:</strong> Alex Martinez<br><strong>Current age of your student (years):</strong> 16<br><strong>Contact email:</strong> contact@example.com<br><strong>Contact phone number:</strong> 555-0102<br><strong>Country of residence:</strong> Mexico<br><strong>City:</strong> Monterrey<br><strong>Question:</strong> Is there an application deadline?</p>
-<p><strong><u>For the Rotary representative:</u></strong></p>
-<p>If you have any admin support questions, need advice about the process, need to add or remove email addresses for your country, or want a list of previous submissions, please contact <a href="mailto:operator@example.test">operator@example.test</a>.</p>
-<p>Thank you for your interest in the Study Abroad Scholarships offered through Rotary Youth Exchange at <a href="https://studyabroadscholarships.org/">studyabroadscholarships.org</a>!</p>
+<p>Hola, Alex Martinez:</p>
+<p><strong><u>Para la familia que envi&#243; el formulario:</u></strong></p>
+<p>Gracias por comunicarse para obtener más información sobre las Becas para Estudios en el Extranjero que se ofrecen como parte del Intercambio de Jóvenes de Rotary.</p>
+<p>Los representantes del Intercambio de Jóvenes de Rotary de M&#233;xico han sido incluidos en este correo electrónico.</p>
+<p>Para asegurarse de que todos vean su mensaje, elija <strong>&laquo;Responder a todos&raquo;</strong> cuando haga sus preguntas.</p>
+<p>Deberían responder en un plazo de 2 semanas con información sobre cómo funciona el programa en su zona.</p>
+<p>Como referencia, esta es la información que envió:</p>
+<p><strong>¿Quién es usted?:</strong> Padre, madre o tutor<br><strong>Nombre:</strong> Alex Martinez<br><strong>Edad actual de su estudiante (años):</strong> 16<br><strong>Correo electrónico de contacto:</strong> contact@example.com<br><strong>Teléfono de contacto:</strong> 555-0102<br><strong>País de residencia:</strong> M&#233;xico<br><strong>Ciudad:</strong> Monterrey<br><strong>Pregunta:</strong> Is there an application deadline?</p>
+<p><strong><u>Para el representante de Rotary:</u></strong></p>
+<p>Si tiene preguntas de apoyo administrativo, necesita asesoramiento sobre el proceso, necesita agregar o eliminar direcciones de correo electrónico para su pa&#237;s, o desea una lista de formularios anteriores, comuníquese con <a href="mailto:operator@example.test">operator@example.test</a>.</p>
+<p>¡Gracias por su interés en las Becas para Estudios en el Extranjero que ofrece el Intercambio de Jóvenes de Rotary en <a href="https://studyabroadscholarships.org/">studyabroadscholarships.org</a>!</p>
 ```
 
 #### Rendered body
 
 <!-- email-example-rendered:start -->
-<p>Hello Alex Martinez,</p>
-<p><strong><u>For the submitting family:</u></strong></p>
-<p>Thank you for reaching out to learn more about the Study Abroad Scholarships offered as part of Rotary Youth Exchange.</p>
-<p>The Rotary Youth Exchange representatives for Mexico have been added to this email.</p>
-<p>To make sure everyone sees your message, choose <strong>&ldquo;Reply all&rdquo;</strong> when you ask your questions.</p>
-<p>They should reply within 2 weeks with information about how the program works in your area.</p>
-<p>For reference, here is the information you submitted:</p>
-<p><strong>Who are you?:</strong> Parent<br><strong>Name:</strong> Alex Martinez<br><strong>Current age of your student (years):</strong> 16<br><strong>Contact email:</strong> contact@example.com<br><strong>Contact phone number:</strong> 555-0102<br><strong>Country of residence:</strong> Mexico<br><strong>City:</strong> Monterrey<br><strong>Question:</strong> Is there an application deadline?</p>
-<p><strong><u>For the Rotary representative:</u></strong></p>
-<p>If you have any admin support questions, need advice about the process, need to add or remove email addresses for your country, or want a list of previous submissions, please contact <a href="mailto:operator@example.test">operator@example.test</a>.</p>
-<p>Thank you for your interest in the Study Abroad Scholarships offered through Rotary Youth Exchange at <a href="https://studyabroadscholarships.org/">studyabroadscholarships.org</a>!</p>
+<p>Hola, Alex Martinez:</p>
+<p><strong><u>Para la familia que envi&#243; el formulario:</u></strong></p>
+<p>Gracias por comunicarse para obtener más información sobre las Becas para Estudios en el Extranjero que se ofrecen como parte del Intercambio de Jóvenes de Rotary.</p>
+<p>Los representantes del Intercambio de Jóvenes de Rotary de M&#233;xico han sido incluidos en este correo electrónico.</p>
+<p>Para asegurarse de que todos vean su mensaje, elija <strong>&laquo;Responder a todos&raquo;</strong> cuando haga sus preguntas.</p>
+<p>Deberían responder en un plazo de 2 semanas con información sobre cómo funciona el programa en su zona.</p>
+<p>Como referencia, esta es la información que envió:</p>
+<p><strong>¿Quién es usted?:</strong> Padre, madre o tutor<br><strong>Nombre:</strong> Alex Martinez<br><strong>Edad actual de su estudiante (años):</strong> 16<br><strong>Correo electrónico de contacto:</strong> contact@example.com<br><strong>Teléfono de contacto:</strong> 555-0102<br><strong>País de residencia:</strong> M&#233;xico<br><strong>Ciudad:</strong> Monterrey<br><strong>Pregunta:</strong> Is there an application deadline?</p>
+<p><strong><u>Para el representante de Rotary:</u></strong></p>
+<p>Si tiene preguntas de apoyo administrativo, necesita asesoramiento sobre el proceso, necesita agregar o eliminar direcciones de correo electrónico para su pa&#237;s, o desea una lista de formularios anteriores, comuníquese con <a href="mailto:operator@example.test">operator@example.test</a>.</p>
+<p>¡Gracias por su interés en las Becas para Estudios en el Extranjero que ofrece el Intercambio de Jóvenes de Rotary en <a href="https://studyabroadscholarships.org/">studyabroadscholarships.org</a>!</p>
 <!-- email-example-rendered:end -->
 
 ### Manual routing review (without a question)
