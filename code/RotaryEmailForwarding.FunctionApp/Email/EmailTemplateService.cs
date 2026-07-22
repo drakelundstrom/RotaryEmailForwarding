@@ -204,9 +204,8 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
             return
             [
                 "Thank you for reaching out to learn more about the Study Abroad Scholarships offered as part of Rotary Youth Exchange.",
-                $"Your local Rotary Youth Exchange representatives from {Html(districtName)} have been added to this email.",
-                "To make sure everyone sees your message, choose <strong>&ldquo;Reply all&rdquo;</strong> when you ask your questions.",
-                "They should reply within 2 weeks with information about how the program works in your area."
+                $"Your local Rotary Youth Exchange representatives from {Html(districtName)} have been added to this email. They should reply within 2 weeks with information about how the program works in your area.",
+                "To make sure everyone sees your message, choose <strong>&ldquo;Reply all&rdquo;</strong> when you ask your questions."
             ];
         }
 

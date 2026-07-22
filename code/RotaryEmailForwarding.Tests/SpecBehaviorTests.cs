@@ -72,10 +72,13 @@ public sealed class SpecBehaviorTests
         Assert.Contains(
             "Thank you for reaching out to learn more about the Study Abroad Scholarships offered as part of Rotary Youth Exchange.",
             message.Body);
-        Assert.Contains("representatives from District 6630 have been added to this email", message.Body);
-        Assert.Contains("choose <strong>&ldquo;Reply all&rdquo;</strong> when you ask your questions", message.Body);
-        Assert.Contains("To make sure everyone sees your message", message.Body);
-        Assert.Contains("reply within 2 weeks with information about how the program works in your area", message.Body);
+        const string districtReplyParagraph = "<p>Your local Rotary Youth Exchange representatives from District 6630 have been added to this email. They should reply within 2 weeks with information about how the program works in your area.</p>";
+        const string replyAllParagraph = "<p>To make sure everyone sees your message, choose <strong>&ldquo;Reply all&rdquo;</strong> when you ask your questions.</p>";
+        Assert.Contains(districtReplyParagraph, message.Body);
+        Assert.Contains(replyAllParagraph, message.Body);
+        Assert.True(
+            message.Body.IndexOf(districtReplyParagraph, StringComparison.Ordinal) <
+            message.Body.IndexOf(replyAllParagraph, StringComparison.Ordinal));
         Assert.Contains("<p><strong><u>For the Rotary representative:</u></strong></p>", message.Body);
         Assert.Contains("operator@example.com", message.Body);
         Assert.Contains("<strong>Who are you?:</strong> Student", message.Body);
