@@ -90,9 +90,8 @@ Subject: Rotary Youth Exchange interest from Jordan Rivera
 <p>Hello Jordan Rivera,</p>
 <p><strong><u>For the submitting student:</u></strong></p>
 <p>Thank you for reaching out to learn more about the Study Abroad Scholarships offered as part of Rotary Youth Exchange.</p>
-<p>Your local Rotary Youth Exchange representatives from District 6630 have been added to this email.</p>
+<p>Your local Rotary Youth Exchange representatives from District 6630 have been added to this email. They should reply within 2 weeks with information about how the program works in your area.</p>
 <p>To make sure everyone sees your message, choose <strong>&ldquo;Reply all&rdquo;</strong> when you ask your questions.</p>
-<p>They should reply within 2 weeks with information about how the program works in your area.</p>
 <p>For reference, here is the information you submitted:</p>
 <p><strong>Who are you?:</strong> Student<br><strong>Name:</strong> Jordan Rivera<br><strong>Current age (years):</strong> 16<br><strong>Student's email:</strong> jordan@example.com<br><strong>Student's phone number:</strong> 555-0100<br><strong>Parent's email:</strong> parent@example.com<br><strong>Parent's phone number:</strong> 555-0101<br><strong>Country of residence:</strong> USA<br><strong>State or province:</strong> Ohio<br><strong>City:</strong> Cleveland<br><strong>Zip code or first 3 of CDN postal code:</strong> 44102<br><strong>Question:</strong> Can I choose a country?</p>
 <p><strong><u>For the Rotary representative:</u></strong></p>
@@ -106,9 +105,8 @@ Subject: Rotary Youth Exchange interest from Jordan Rivera
 <p>Hello Jordan Rivera,</p>
 <p><strong><u>For the submitting student:</u></strong></p>
 <p>Thank you for reaching out to learn more about the Study Abroad Scholarships offered as part of Rotary Youth Exchange.</p>
-<p>Your local Rotary Youth Exchange representatives from District 6630 have been added to this email.</p>
+<p>Your local Rotary Youth Exchange representatives from District 6630 have been added to this email. They should reply within 2 weeks with information about how the program works in your area.</p>
 <p>To make sure everyone sees your message, choose <strong>&ldquo;Reply all&rdquo;</strong> when you ask your questions.</p>
-<p>They should reply within 2 weeks with information about how the program works in your area.</p>
 <p>For reference, here is the information you submitted:</p>
 <p><strong>Who are you?:</strong> Student<br><strong>Name:</strong> Jordan Rivera<br><strong>Current age (years):</strong> 16<br><strong>Student's email:</strong> jordan@example.com<br><strong>Student's phone number:</strong> 555-0100<br><strong>Parent's email:</strong> parent@example.com<br><strong>Parent's phone number:</strong> 555-0101<br><strong>Country of residence:</strong> USA<br><strong>State or province:</strong> Ohio<br><strong>City:</strong> Cleveland<br><strong>Zip code or first 3 of CDN postal code:</strong> 44102<br><strong>Question:</strong> Can I choose a country?</p>
 <p><strong><u>For the Rotary representative:</u></strong></p>
