@@ -715,6 +715,28 @@ public sealed class SpecBehaviorTests
     }
 
     [Fact]
+    public void SmtpSender_TreatsProviderTimeoutAsHandledRetryableFailure()
+    {
+        var exception = new TaskCanceledException("SMTP provider did not respond before the timeout.");
+
+        var result = SmtpEmailSender.Classify(exception);
+
+        Assert.True(SmtpEmailSender.IsHandledSmtpException(exception));
+        Assert.Equal(OutboundEmailAttemptStatus.RetryableFailed, result.Status);
+        Assert.Equal(nameof(TaskCanceledException), result.ProviderCode);
+    }
+
+    [Fact]
+    public void SmtpSender_UsesBoundedExponentialRetryDelay()
+    {
+        var firstDelay = SmtpEmailSender.GetRetryDelay(1);
+        var secondDelay = SmtpEmailSender.GetRetryDelay(2);
+
+        Assert.InRange(firstDelay, TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(1_000));
+        Assert.InRange(secondDelay, TimeSpan.FromMilliseconds(1_000), TimeSpan.FromMilliseconds(1_500));
+    }
+
+    [Fact]
     public void RetryTimeZone_ResolvesEasternAcrossSupportedRuntimeIds()
     {
         var timeZone = RetryTimeZone.Resolve("Eastern Standard Time");

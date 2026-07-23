@@ -9,6 +9,10 @@ namespace RotaryEmailForwarding.FunctionApp.Email;
 
 public sealed class SmtpEmailSender(AppConfiguration configuration) : IEmailSender
 {
+    private const int MaxSendAttempts = 3;
+    private const int RetryBaseDelayMilliseconds = 500;
+    private const int SmtpTimeoutMilliseconds = 30_000;
+
     public async Task<EmailSendResult> SendAsync(OutboundEmailMessage message, CancellationToken cancellationToken)
     {
         if (message.Recipients.Count == 0)
@@ -45,37 +49,60 @@ public sealed class SmtpEmailSender(AppConfiguration configuration) : IEmailSend
                 "sendingEmailPassword is required.");
         }
 
-        try
+        for (var attempt = 1; attempt <= MaxSendAttempts; attempt++)
         {
-            using var emailClient = new SmtpClient();
-            var emailToSend = BuildMimeMessage(
-                message,
-                configuration.SendingEmailAddress,
-                EffectiveRecipients(message.Recipients));
+            try
+            {
+                using var emailClient = new SmtpClient
+                {
+                    Timeout = SmtpTimeoutMilliseconds
+                };
+                var emailToSend = BuildMimeMessage(
+                    message,
+                    configuration.SendingEmailAddress,
+                    EffectiveRecipients(message.Recipients));
 
-            await emailClient.ConnectAsync(
-                configuration.MailHost,
-                configuration.MailPort,
-                ResolveSocketOptions(configuration.MailSecurityMode),
-                cancellationToken);
-            await emailClient.AuthenticateAsync(
-                configuration.SendingEmailAddress,
-                configuration.SendingEmailPassword,
-                cancellationToken);
-            await emailClient.SendAsync(emailToSend, cancellationToken);
-            await emailClient.DisconnectAsync(true, cancellationToken);
+                await emailClient.ConnectAsync(
+                    configuration.MailHost,
+                    configuration.MailPort,
+                    ResolveSocketOptions(configuration.MailSecurityMode),
+                    cancellationToken);
+                await emailClient.AuthenticateAsync(
+                    configuration.SendingEmailAddress,
+                    configuration.SendingEmailPassword,
+                    cancellationToken);
+                await emailClient.SendAsync(emailToSend, cancellationToken);
 
-            return EmailSendResult.Success("SmtpAccepted", "Message accepted by SMTP provider.");
+                // SendAsync completed, so the provider accepted the message. A failure while
+                // politely closing the connection must not cause the message to be sent twice.
+                try
+                {
+                    await emailClient.DisconnectAsync(true, cancellationToken);
+                }
+                catch (Exception exception) when (IsHandledSmtpException(exception))
+                {
+                    // Disposal will close the connection.
+                }
+
+                return EmailSendResult.Success("SmtpAccepted", "Message accepted by SMTP provider.");
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception) when (IsHandledSmtpException(exception))
+            {
+                var result = Classify(exception);
+                if (result.Status != OutboundEmailAttemptStatus.RetryableFailed || attempt == MaxSendAttempts)
+                {
+                    return result;
+                }
+
+                await Task.Delay(GetRetryDelay(attempt), cancellationToken);
+            }
         }
-        catch (Exception exception) when (exception is AuthenticationException
-            or SmtpCommandException
-            or SmtpProtocolException
-            or InvalidOperationException
-            or FormatException
-            or IOException)
-        {
-            return Classify(exception);
-        }
+
+        throw new InvalidOperationException("SMTP retry loop completed without a result.");
     }
 
     public static EmailSendResult Classify(Exception exception)
@@ -194,5 +221,24 @@ public sealed class SmtpEmailSender(AppConfiguration configuration) : IEmailSend
         }
 
         throw new InvalidOperationException($"Unsupported mailSecurityMode '{mode}'.");
+    }
+
+    internal static bool IsHandledSmtpException(Exception exception)
+    {
+        return exception is AuthenticationException
+            or SmtpCommandException
+            or SmtpProtocolException
+            or InvalidOperationException
+            or FormatException
+            or IOException
+            or OperationCanceledException
+            or TimeoutException;
+    }
+
+    internal static TimeSpan GetRetryDelay(int failedAttempt)
+    {
+        var exponentialDelay = RetryBaseDelayMilliseconds * (1 << (failedAttempt - 1));
+        var jitter = Random.Shared.Next(0, RetryBaseDelayMilliseconds + 1);
+        return TimeSpan.FromMilliseconds(exponentialDelay + jitter);
     }
 }

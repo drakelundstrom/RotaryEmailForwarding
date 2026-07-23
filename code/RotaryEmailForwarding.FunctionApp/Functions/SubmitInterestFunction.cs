@@ -24,11 +24,13 @@ public sealed class SubmitInterestFunction(
 
     [Function("SubmitInterest")]
     public async Task<HttpResponseData> Run(
-        [HttpTrigger(AuthorizationLevel.Function, "post", Route = "interest-form-entry")] HttpRequestData request,
-        CancellationToken cancellationToken)
+        [HttpTrigger(AuthorizationLevel.Function, "post", Route = "interest-form-entry")] HttpRequestData request)
     {
+        // The webhook caller has a deliberately short timeout. Once Azure Functions has
+        // accepted the request, finish the durable submission workflow even if the caller
+        // disconnects before SMTP delivery completes.
         var correlationId = GetCorrelationId(request);
-        var rawBody = await new StreamReader(request.Body).ReadToEndAsync(cancellationToken);
+        var rawBody = await new StreamReader(request.Body).ReadToEndAsync(CancellationToken.None);
 
         if (rawBody.Length > configuration.MaxRequestBodyBytes)
         {
@@ -48,11 +50,7 @@ public sealed class SubmitInterestFunction(
                     RequestBody = rawBody,
                     ReceivedOnUtc = DateTimeOffset.UtcNow
                 },
-                cancellationToken);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
+                CancellationToken.None);
         }
         catch (Exception exception)
         {
@@ -60,8 +58,7 @@ public sealed class SubmitInterestFunction(
             await SendOperatorFailureAsync(
                 correlationId,
                 $"submission unable to be logged to database: {exception.Message}",
-                rawBody,
-                cancellationToken);
+                rawBody);
             return await CreateErrorResponse(
                 request,
                 HttpStatusCode.InternalServerError,
@@ -81,8 +78,7 @@ public sealed class SubmitInterestFunction(
             await SendOperatorFailureAsync(
                 correlationId,
                 $"Failure to process submission or send email: {exception.Message}",
-                rawBody,
-                cancellationToken);
+                rawBody);
             return await CreateErrorResponse(
                 request,
                 HttpStatusCode.BadRequest,
@@ -95,8 +91,7 @@ public sealed class SubmitInterestFunction(
             await SendOperatorFailureAsync(
                 correlationId,
                 "Failure to process submission or send email: request body deserialized to null.",
-                rawBody,
-                cancellationToken);
+                rawBody);
             return await CreateErrorResponse(
                 request,
                 HttpStatusCode.BadRequest,
@@ -109,11 +104,7 @@ public sealed class SubmitInterestFunction(
         SubmissionWorkflowResult result;
         try
         {
-            result = await workflow.ProcessAsync(submissionRequest, correlationId, cancellationToken);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
+            result = await workflow.ProcessAsync(submissionRequest, correlationId, CancellationToken.None);
         }
         catch (Exception exception)
         {
@@ -121,8 +112,7 @@ public sealed class SubmitInterestFunction(
             await SendOperatorFailureAsync(
                 correlationId,
                 $"Failure to send to database or process submission: {exception.Message}",
-                rawBody,
-                cancellationToken);
+                rawBody);
             return await CreateErrorResponse(
                 request,
                 HttpStatusCode.InternalServerError,
@@ -146,7 +136,7 @@ public sealed class SubmitInterestFunction(
             result.Submission.SentOnUtc,
             EmailDeliveryStatus = result.Submission.EmailDeliveryStatus.ToString(),
             result.Submission.Errors
-        }, cancellationToken);
+        }, CancellationToken.None);
 
         return response;
     }
@@ -186,13 +176,12 @@ public sealed class SubmitInterestFunction(
     private async Task SendOperatorFailureAsync(
         string correlationId,
         string failureSummary,
-        string rawSubmissionJson,
-        CancellationToken cancellationToken)
+        string rawSubmissionJson)
     {
         try
         {
             var message = templateService.BuildOperatorFailureMessage(correlationId, failureSummary, rawSubmissionJson);
-            var result = await emailSender.SendAsync(message, cancellationToken);
+            var result = await emailSender.SendAsync(message, CancellationToken.None);
             if (result.Status != OutboundEmailAttemptStatus.Succeeded)
             {
                 logger.LogError(
@@ -201,10 +190,6 @@ public sealed class SubmitInterestFunction(
                     result.ProviderCode,
                     result.ProviderResponse);
             }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
         }
         catch (Exception exception)
         {
