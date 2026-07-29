@@ -74,6 +74,10 @@ Submissions are persisted with `SentOnUtc=null` and `EmailDeliveryStatus=Pending
 
 Flex Consumption does not support `WEBSITE_TIME_ZONE`, so the retry trigger wakes hourly and only runs when the configured `emailRetryTimeZone` resolves to local hour `03:00`.
 
+## Exception Alerts
+
+Each deployed environment includes an Azure Monitor log search alert on its Application Insights exception telemetry. The alert evaluates five-minute windows and fires when Application Insights records one or more exceptions. Its action group emails `DrakeLundstrom@gmail.com` and `studyabroadscholarshipswebsite@gmail.com` using Azure Monitor's common alert schema. Azure may send an action-group enrollment/confirmation notification when the receivers are first deployed.
+
 ## Email Examples
 
 The examples below show representative HTML email output rendered by `EmailTemplateService` for every routing variation and the Rotarian-specific variation. Each body is shown as literal HTML source followed by a rendered preview of that same HTML. Blank or null form fields are omitted from the information block, including the optional `Question` line. Examples with and without a submitted question are included below. Each submission produces one email: all applicable representatives, submitters, students, parents, and support recipients are included together on that email's `To` line so the submitter can use **“Reply all”**. Top-level `<p>` elements are split onto separate lines here for readability.

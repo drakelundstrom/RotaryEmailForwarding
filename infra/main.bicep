@@ -27,6 +27,12 @@ param applicationInsightsName string
 @description('Log Analytics workspace name.')
 param logAnalyticsWorkspaceName string
 
+@description('Email addresses notified when Application Insights records exceptions.')
+param exceptionAlertEmailAddresses array = [
+  'DrakeLundstrom@gmail.com'
+  'studyabroadscholarshipswebsite@gmail.com'
+]
+
 @description('Key Vault name for application secrets and Key Vault references.')
 param keyVaultName string
 
@@ -135,6 +141,61 @@ resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = {
     Application_Type: 'web'
     WorkspaceResourceId: logAnalytics.id
     DisableLocalAuth: true
+  }
+}
+
+resource exceptionAlertActionGroup 'Microsoft.Insights/actionGroups@2023-01-01' = {
+  name: '${applicationInsightsName}-exceptions-ag'
+  location: 'global'
+  tags: tags
+  properties: {
+    groupShortName: 'AppExcept'
+    enabled: true
+    emailReceivers: [for (emailAddress, index) in exceptionAlertEmailAddresses: {
+      name: 'Exception email ${index + 1}'
+      emailAddress: emailAddress
+      useCommonAlertSchema: true
+    }]
+  }
+}
+
+resource applicationExceptionAlert 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = {
+  name: '${applicationInsightsName}-exceptions-alert'
+  location: location
+  kind: 'LogAlert'
+  tags: tags
+  properties: {
+    displayName: '${applicationInsightsName} exceptions'
+    description: 'Email the website operators when Application Insights records one or more exception telemetry items.'
+    severity: 1
+    enabled: true
+    scopes: [
+      applicationInsights.id
+    ]
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT5M'
+    criteria: {
+      allOf: [
+        {
+          query: 'exceptions'
+          operator: 'GreaterThan'
+          threshold: 0
+          timeAggregation: 'Count'
+          failingPeriods: {
+            numberOfEvaluationPeriods: 1
+            minFailingPeriodsToAlert: 1
+          }
+        }
+      ]
+    }
+    autoMitigate: true
+    checkWorkspaceAlertsStorageConfigured: false
+    skipQueryValidation: false
+    actions: {
+      actionGroups: [
+        exceptionAlertActionGroup.id
+      ]
+    }
   }
 }
 
