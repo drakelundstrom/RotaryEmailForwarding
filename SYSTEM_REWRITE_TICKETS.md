@@ -101,7 +101,7 @@ Acceptance Criteria:
 - A payload with null legacy fields can deserialize and map without throwing.
 - `ReceivedOnUtc` is set exactly once during initial persistence.
 - `SentOnUtc` is null on initial persistence.
-- `EmailDeliveryStatus` starts as `Pending`.
+- `EmailDeliveryStatus` starts as `Pending` and remains eligible for recovery if processing stops before provider confirmation.
 - Server-generated metadata is non-null after mapping.
 
 ## Ticket 04 - Storage Abstraction And Cosmos Repository

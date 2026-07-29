@@ -39,6 +39,8 @@ public static class SubmissionNormalizer
             Name = TrimToNull(request.Name),
             Age = TrimToNull(request.Age),
             ParentEnteredAge = TrimToNull(request.ParentEnteredAge),
+            School = TrimToNull(request.School),
+            ParentEnteredSchool = TrimToNull(request.ParentEnteredSchool),
             StudentEmail = TrimToNull(request.StudentEmail),
             StudentPhone = TrimToNull(request.StudentPhone),
             ParentEmail = TrimToNull(request.ParentEmail),
