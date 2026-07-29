@@ -361,6 +361,8 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
         AddLine(lines, "Name", submission.Name);
         AddLine(lines, "Current age (years)", submission.Age);
         AddLine(lines, "Current age of your student (years)", submission.ParentEnteredAge);
+        AddLine(lines, "What high school do or will you attend?", submission.School);
+        AddLine(lines, "What high school does or will your student attend?", submission.ParentEnteredSchool);
         AddLine(lines, "Student's email", submission.StudentEmail);
         AddLine(lines, "Student's phone number", submission.StudentPhone);
         AddLine(lines, "Parent's email", submission.ParentEmail);

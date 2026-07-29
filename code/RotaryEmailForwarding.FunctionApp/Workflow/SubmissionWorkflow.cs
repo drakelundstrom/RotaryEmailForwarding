@@ -60,6 +60,10 @@ public sealed class SubmissionWorkflow(
             };
         }
 
+        // Persist the complete outbound-email state before making the external call. If the
+        // process stops during delivery, the scheduled retry can safely recover this record.
+        await repository.UpdateSubmissionAsync(submission, cancellationToken);
+
         var delivered = await deliveryOrchestrator.DeliverAsync(submission, [message], cancellationToken);
         await repository.UpdateSubmissionAsync(delivered, cancellationToken);
 

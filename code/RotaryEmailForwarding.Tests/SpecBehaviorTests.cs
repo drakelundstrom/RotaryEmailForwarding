@@ -44,6 +44,8 @@ public sealed class SpecBehaviorTests
                 Name = "Jordan Example",
                 Age = "16",
                 ParentEnteredAge = "15",
+                School = "Cleveland High School",
+                ParentEnteredSchool = "Lakewood High School",
                 StudentEmail = "jordan@example.com",
                 StudentPhone = "555-0100",
                 ParentEmail = "parent@example.com",
@@ -85,6 +87,8 @@ public sealed class SpecBehaviorTests
         Assert.Contains("<strong>Name:</strong> Jordan Example", message.Body);
         Assert.Contains("<strong>Current age (years):</strong> 16", message.Body);
         Assert.Contains("<strong>Current age of your student (years):</strong> 15", message.Body);
+        Assert.Contains("<strong>What high school do or will you attend?:</strong> Cleveland High School", message.Body);
+        Assert.Contains("<strong>What high school does or will your student attend?:</strong> Lakewood High School", message.Body);
         Assert.Contains("<strong>Student's email:</strong> jordan@example.com", message.Body);
         Assert.Contains("<strong>Student's phone number:</strong> 555-0100", message.Body);
         Assert.Contains("<strong>Parent's email:</strong> parent@example.com", message.Body);
@@ -715,6 +719,49 @@ public sealed class SpecBehaviorTests
     }
 
     [Fact]
+    public async Task Workflow_PersistsPendingSubmissionBeforeEmailIsSent()
+    {
+        var repository = new InMemoryApplicationRepository();
+        var observedPersistedState = false;
+        var sender = new FakeEmailSender
+        {
+            BeforeSendAsync = async () =>
+            {
+                var retryable = await repository.GetRetryableUnsentSubmissionsAsync(
+                    Now.AddDays(-1),
+                    Now.AddDays(1),
+                    Now,
+                    10,
+                    CancellationToken.None);
+                var persisted = Assert.Single(retryable);
+                Assert.Equal(EmailDeliveryStatus.Pending, persisted.EmailDeliveryStatus);
+                Assert.Null(persisted.SentOnUtc);
+                Assert.Equal("Cleveland High School", persisted.School);
+                Assert.Equal("Lakewood High School", persisted.ParentEnteredSchool);
+                Assert.Contains("No district contact found for zipcode", persisted.Errors);
+                observedPersistedState = true;
+            }
+        };
+
+        var result = await BuildWorkflow(repository, sender).ProcessAsync(
+            new InterestFormSubmissionRequest
+            {
+                SubmissionType = "Parent",
+                ContactEmail = "parent@example.com",
+                CountryOfResidence = "United States",
+                Zipcode = "44102",
+                School = "Cleveland High School",
+                ParentEnteredSchool = "Lakewood High School"
+            },
+            "corr-persist-before-send",
+            CancellationToken.None);
+
+        Assert.True(observedPersistedState);
+        Assert.Equal(EmailDeliveryStatus.Sent, result.Submission.EmailDeliveryStatus);
+        Assert.NotNull(result.Submission.SentOnUtc);
+    }
+
+    [Fact]
     public void SmtpSender_TreatsProviderTimeoutAsHandledRetryableFailure()
     {
         var exception = new TaskCanceledException("SMTP provider did not respond before the timeout.");
@@ -790,15 +837,22 @@ public sealed class SpecBehaviorTests
 
         public Exception ExceptionToThrow { get; init; } = new InvalidOperationException("Send failed.");
 
-        public Task<EmailSendResult> SendAsync(OutboundEmailMessage message, CancellationToken cancellationToken)
+        public Func<Task>? BeforeSendAsync { get; init; }
+
+        public async Task<EmailSendResult> SendAsync(OutboundEmailMessage message, CancellationToken cancellationToken)
         {
+            if (BeforeSendAsync is not null)
+            {
+                await BeforeSendAsync();
+            }
+
             SentMessages.Add(message);
             if (string.Equals(message.MessageKey, ThrowOnMessageKey, StringComparison.Ordinal))
             {
                 throw ExceptionToThrow;
             }
 
-            return Task.FromResult(NextResult);
+            return NextResult;
         }
     }
 }
