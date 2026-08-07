@@ -23,17 +23,8 @@ public sealed class EmailRetryService(
         var now = clock.UtcNow;
         var retryTimeZone = RetryTimeZone.Resolve(configuration.EmailRetryTimeZone);
         var localNow = TimeZoneInfo.ConvertTime(now, retryTimeZone);
-        var previousLocalDayStart = DateTime.SpecifyKind(localNow.Date.AddDays(-1), DateTimeKind.Unspecified);
         var previousLocalDayEnd = DateTime.SpecifyKind(localNow.Date, DateTimeKind.Unspecified);
-        var previousDayStart = new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(previousLocalDayStart, retryTimeZone));
         var previousDayEnd = new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(previousLocalDayEnd, retryTimeZone));
-
-        var submissions = await repository.GetRetryableUnsentSubmissionsAsync(
-            previousDayStart,
-            previousDayEnd,
-            now,
-            100,
-            cancellationToken);
 
         var attempted = 0;
         var sent = 0;
@@ -41,8 +32,20 @@ public sealed class EmailRetryService(
         var terminalFailed = 0;
         var stoppedForQuota = false;
 
-        foreach (var submission in submissions)
+        while (!stoppedForQuota)
         {
+            // Fetch and process a single submission at a time to avoid burst sends.
+            var submissions = await repository.GetRetryableUnsentSubmissionsAsync(
+                previousDayEnd,
+                now,
+                1,
+                cancellationToken);
+            var submission = submissions.FirstOrDefault();
+            if (submission is null)
+            {
+                break;
+            }
+
             attempted++;
             var route = await routingService.RouteAsync(submission, cancellationToken);
             var message = templateService.BuildMessage(submission, route);

@@ -14,7 +14,6 @@ public interface IApplicationRepository
     Task<NormalizedInterestFormSubmission?> GetSubmissionAsync(string id, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<NormalizedInterestFormSubmission>> GetRetryableUnsentSubmissionsAsync(
-        DateTimeOffset retryWindowStartUtc,
         DateTimeOffset retryWindowEndUtc,
         DateTimeOffset nowUtc,
         int maxCount,

@@ -57,7 +57,7 @@ param mailPort string = '587'
 @description('Canonical SMTP security mode setting.')
 param mailSecurityMode string = 'StartTls'
 
-@description('Timezone used by the 3:00 AM email retry timer.')
+@description('Timezone used to calculate local-day email retry windows.')
 param emailRetryTimeZone string = 'Eastern Standard Time'
 
 @description('Maximum request body size accepted by the public submission endpoint.')

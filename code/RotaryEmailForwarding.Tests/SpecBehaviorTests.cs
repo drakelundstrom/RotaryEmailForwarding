@@ -728,7 +728,6 @@ public sealed class SpecBehaviorTests
             BeforeSendAsync = async () =>
             {
                 var retryable = await repository.GetRetryableUnsentSubmissionsAsync(
-                    Now.AddDays(-1),
                     Now.AddDays(1),
                     Now,
                     10,

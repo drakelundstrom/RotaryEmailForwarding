@@ -57,7 +57,6 @@ public sealed class CosmosApplicationRepository : IApplicationRepository
     }
 
     public Task<IReadOnlyList<NormalizedInterestFormSubmission>> GetRetryableUnsentSubmissionsAsync(
-        DateTimeOffset retryWindowStartUtc,
         DateTimeOffset retryWindowEndUtc,
         DateTimeOffset nowUtc,
         int maxCount,
