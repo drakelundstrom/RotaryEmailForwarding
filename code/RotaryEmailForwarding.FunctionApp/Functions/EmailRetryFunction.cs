@@ -15,11 +15,13 @@ public sealed class EmailRetryFunction(
     {
         var result = await retryService.RetryAsync(cancellationToken);
         logger.LogInformation(
-            "Email retry completed. Attempted: {Attempted}, Sent: {Sent}, RetryPending: {RetryPending}, TerminalFailed: {TerminalFailed}, StoppedForQuota: {StoppedForQuota}",
+            "Email retry completed. Attempted: {Attempted}, Sent: {Sent}, RetryPending: {RetryPending}, TerminalFailed: {TerminalFailed}, RecipientUnitsAttempted: {RecipientUnitsAttempted}, StoppedForRecipientBudget: {StoppedForRecipientBudget}, StoppedForQuota: {StoppedForQuota}",
             result.Attempted,
             result.Sent,
             result.RetryPending,
             result.TerminalFailed,
+            result.RecipientUnitsAttempted,
+            result.StoppedForRecipientBudget,
             result.StoppedForQuota);
     }
 }

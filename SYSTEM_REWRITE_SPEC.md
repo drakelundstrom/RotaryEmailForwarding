@@ -742,7 +742,9 @@ Selection rule:
 - At minimum, select every submission from the previous local calendar day where `SentOnUtc` is null and `EmailDeliveryStatus` is `Pending` or `RetryPending`.
 - The preferred implementation should also include older unsent retryable submissions so backlog does not become stranded after repeated provider quota failures.
 - Terminal failures must not be retried automatically unless an operator explicitly resets them to a retryable state.
-- Limit each scheduled run to 250 submissions, half of the consumer Gmail daily sending limit, so capacity remains available for new submissions and operator notifications.
+- Give each scheduled run a budget of 250 Gmail recipient quota units, half of the consumer Gmail daily recipient allowance, so capacity remains available for new submissions and operator notifications.
+- Count every distinct recipient address on an outbound retry message as one quota unit and stop before sending a message that would exceed the remaining budget.
+- Stop the run immediately when Gmail reports a provider quota failure, even if the tracked recipient-unit budget has not been exhausted.
 
 Retry behavior:
 

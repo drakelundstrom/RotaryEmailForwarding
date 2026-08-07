@@ -791,10 +791,11 @@ public sealed class SpecBehaviorTests
     }
 
     [Fact]
-    public async Task EmailRetryService_LimitsEachRunToHalfTheConsumerGmailDailyLimit()
+    public async Task EmailRetryService_LimitsEachRunByRecipientQuotaUnits()
     {
         var repository = new InMemoryApplicationRepository();
-        for (var index = 0; index < EmailRetryService.MaxSubmissionsPerRun + 1; index++)
+        var submissionsToInsert = (EmailRetryService.MaxRecipientUnitsPerRun / 2) + 1;
+        for (var index = 0; index < submissionsToInsert; index++)
         {
             await repository.InsertSubmissionAsync(
                 SubmissionNormalizer.Normalize(
@@ -830,9 +831,13 @@ public sealed class SpecBehaviorTests
             10,
             CancellationToken.None);
 
-        Assert.Equal(EmailRetryService.MaxSubmissionsPerRun, result.Attempted);
-        Assert.Equal(EmailRetryService.MaxSubmissionsPerRun, result.Sent);
-        Assert.Equal(EmailRetryService.MaxSubmissionsPerRun, sender.SentMessages.Count);
+        Assert.Equal(125, result.Attempted);
+        Assert.Equal(125, result.Sent);
+        Assert.Equal(125, sender.SentMessages.Count);
+        Assert.All(sender.SentMessages, message => Assert.Equal(2, message.Recipients.Count));
+        Assert.Equal(EmailRetryService.MaxRecipientUnitsPerRun, result.RecipientUnitsAttempted);
+        Assert.True(result.StoppedForRecipientBudget);
+        Assert.False(result.StoppedForQuota);
         Assert.Single(remaining);
     }
 

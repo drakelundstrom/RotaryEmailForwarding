@@ -8,7 +8,14 @@ using RotaryEmailForwarding.FunctionApp.Storage;
 
 namespace RotaryEmailForwarding.FunctionApp.Retry;
 
-public sealed record EmailRetryRunResult(int Attempted, int Sent, int RetryPending, int TerminalFailed, bool StoppedForQuota);
+public sealed record EmailRetryRunResult(
+    int Attempted,
+    int Sent,
+    int RetryPending,
+    int TerminalFailed,
+    int RecipientUnitsAttempted,
+    bool StoppedForRecipientBudget,
+    bool StoppedForQuota);
 
 public sealed class EmailRetryService(
     IApplicationRepository repository,
@@ -18,7 +25,7 @@ public sealed class EmailRetryService(
     IClock clock,
     AppConfiguration configuration)
 {
-    internal const int MaxSubmissionsPerRun = 250;
+    internal const int MaxRecipientUnitsPerRun = 250;
 
     public async Task<EmailRetryRunResult> RetryAsync(CancellationToken cancellationToken)
     {
@@ -32,9 +39,11 @@ public sealed class EmailRetryService(
         var sent = 0;
         var retryPending = 0;
         var terminalFailed = 0;
+        var recipientUnitsAttempted = 0;
+        var stoppedForRecipientBudget = false;
         var stoppedForQuota = false;
 
-        while (!stoppedForQuota && attempted < MaxSubmissionsPerRun)
+        while (!stoppedForQuota && !stoppedForRecipientBudget)
         {
             // Fetch and process a single submission at a time to avoid burst sends.
             var submissions = await repository.GetRetryableUnsentSubmissionsAsync(
@@ -48,9 +57,20 @@ public sealed class EmailRetryService(
                 break;
             }
 
-            attempted++;
             var route = await routingService.RouteAsync(submission, cancellationToken);
             var message = templateService.BuildMessage(submission, route);
+            var messageAlreadySucceeded = submission.EmailDeliveryAttempts.Any(attempt =>
+                attempt.MessageKey == message.MessageKey
+                && attempt.Status == OutboundEmailAttemptStatus.Succeeded);
+            var recipientUnits = messageAlreadySucceeded ? 0 : message.Recipients.Count;
+            if (recipientUnitsAttempted + recipientUnits > MaxRecipientUnitsPerRun)
+            {
+                stoppedForRecipientBudget = true;
+                break;
+            }
+
+            attempted++;
+            recipientUnitsAttempted += recipientUnits;
             var delivered = await deliveryOrchestrator.DeliverAsync(submission, [message], cancellationToken);
             await repository.UpdateSubmissionAsync(delivered, cancellationToken);
 
@@ -79,6 +99,13 @@ public sealed class EmailRetryService(
             }
         }
 
-        return new EmailRetryRunResult(attempted, sent, retryPending, terminalFailed, stoppedForQuota);
+        return new EmailRetryRunResult(
+            attempted,
+            sent,
+            retryPending,
+            terminalFailed,
+            recipientUnitsAttempted,
+            stoppedForRecipientBudget,
+            stoppedForQuota);
     }
 }
