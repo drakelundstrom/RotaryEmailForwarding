@@ -330,15 +330,18 @@ Acceptance Criteria:
 
 Goal:
 
-- Add the 3:00 AM retry function for unsent submissions.
+- Add the `08:00` UTC retry function for unsent submissions.
 
 Scope:
 
 - Implement timer-triggered Azure Function.
-- Run every morning at 3:00 AM in the configured business timezone, currently `America/New_York`.
+- Run once per day at `08:00` UTC; use the configured business timezone, currently `America/New_York`, to calculate local-calendar-day retry selection boundaries.
 - Query previous local calendar day submissions where `SentOnUtc=null` and `EmailDeliveryStatus` is `Pending` or `RetryPending`.
 - Include older retryable backlog so repeated quota failures do not strand records.
 - Exclude `TerminalFailed` unless explicitly reset by an operator.
+- Give each scheduled run a budget of 250 Gmail recipient quota units, reserving half of the consumer Gmail daily recipient allowance for new submissions and operator notifications.
+- Count every distinct recipient address on a retry message as one unit; stop before sending a message that would exceed the remaining budget.
+- Stop immediately if Gmail reports a provider quota failure, regardless of the tracked recipient-unit total.
 - Use lease/optimistic concurrency to avoid duplicate concurrent sends.
 - Stop or throttle the batch on quota exhaustion.
 

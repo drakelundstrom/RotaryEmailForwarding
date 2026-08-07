@@ -8,7 +8,14 @@ using RotaryEmailForwarding.FunctionApp.Storage;
 
 namespace RotaryEmailForwarding.FunctionApp.Retry;
 
-public sealed record EmailRetryRunResult(int Attempted, int Sent, int RetryPending, int TerminalFailed, bool StoppedForQuota);
+public sealed record EmailRetryRunResult(
+    int Attempted,
+    int Sent,
+    int RetryPending,
+    int TerminalFailed,
+    int RecipientUnitsAttempted,
+    bool StoppedForRecipientBudget,
+    bool StoppedForQuota);
 
 public sealed class EmailRetryService(
     IApplicationRepository repository,
@@ -18,34 +25,52 @@ public sealed class EmailRetryService(
     IClock clock,
     AppConfiguration configuration)
 {
+    internal const int MaxRecipientUnitsPerRun = 250;
+
     public async Task<EmailRetryRunResult> RetryAsync(CancellationToken cancellationToken)
     {
         var now = clock.UtcNow;
         var retryTimeZone = RetryTimeZone.Resolve(configuration.EmailRetryTimeZone);
         var localNow = TimeZoneInfo.ConvertTime(now, retryTimeZone);
-        var previousLocalDayStart = DateTime.SpecifyKind(localNow.Date.AddDays(-1), DateTimeKind.Unspecified);
         var previousLocalDayEnd = DateTime.SpecifyKind(localNow.Date, DateTimeKind.Unspecified);
-        var previousDayStart = new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(previousLocalDayStart, retryTimeZone));
         var previousDayEnd = new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(previousLocalDayEnd, retryTimeZone));
-
-        var submissions = await repository.GetRetryableUnsentSubmissionsAsync(
-            previousDayStart,
-            previousDayEnd,
-            now,
-            100,
-            cancellationToken);
 
         var attempted = 0;
         var sent = 0;
         var retryPending = 0;
         var terminalFailed = 0;
+        var recipientUnitsAttempted = 0;
+        var stoppedForRecipientBudget = false;
         var stoppedForQuota = false;
 
-        foreach (var submission in submissions)
+        while (!stoppedForQuota && !stoppedForRecipientBudget)
         {
-            attempted++;
+            // Fetch and process a single submission at a time to avoid burst sends.
+            var submissions = await repository.GetRetryableUnsentSubmissionsAsync(
+                previousDayEnd,
+                now,
+                1,
+                cancellationToken);
+            var submission = submissions.FirstOrDefault();
+            if (submission is null)
+            {
+                break;
+            }
+
             var route = await routingService.RouteAsync(submission, cancellationToken);
             var message = templateService.BuildMessage(submission, route);
+            var messageAlreadySucceeded = submission.EmailDeliveryAttempts.Any(attempt =>
+                attempt.MessageKey == message.MessageKey
+                && attempt.Status == OutboundEmailAttemptStatus.Succeeded);
+            var recipientUnits = messageAlreadySucceeded ? 0 : message.Recipients.Count;
+            if (recipientUnitsAttempted + recipientUnits > MaxRecipientUnitsPerRun)
+            {
+                stoppedForRecipientBudget = true;
+                break;
+            }
+
+            attempted++;
+            recipientUnitsAttempted += recipientUnits;
             var delivered = await deliveryOrchestrator.DeliverAsync(submission, [message], cancellationToken);
             await repository.UpdateSubmissionAsync(delivered, cancellationToken);
 
@@ -74,6 +99,13 @@ public sealed class EmailRetryService(
             }
         }
 
-        return new EmailRetryRunResult(attempted, sent, retryPending, terminalFailed, stoppedForQuota);
+        return new EmailRetryRunResult(
+            attempted,
+            sent,
+            retryPending,
+            terminalFailed,
+            recipientUnitsAttempted,
+            stoppedForRecipientBudget,
+            stoppedForQuota);
     }
 }

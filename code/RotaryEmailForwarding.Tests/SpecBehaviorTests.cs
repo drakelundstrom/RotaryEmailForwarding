@@ -728,7 +728,6 @@ public sealed class SpecBehaviorTests
             BeforeSendAsync = async () =>
             {
                 var retryable = await repository.GetRetryableUnsentSubmissionsAsync(
-                    Now.AddDays(-1),
                     Now.AddDays(1),
                     Now,
                     10,
@@ -789,6 +788,57 @@ public sealed class SpecBehaviorTests
         var timeZone = RetryTimeZone.Resolve("Eastern Standard Time");
 
         Assert.NotEqual(TimeZoneInfo.Utc.Id, timeZone.Id);
+    }
+
+    [Fact]
+    public async Task EmailRetryService_LimitsEachRunByRecipientQuotaUnits()
+    {
+        var repository = new InMemoryApplicationRepository();
+        var submissionsToInsert = (EmailRetryService.MaxRecipientUnitsPerRun / 2) + 1;
+        for (var index = 0; index < submissionsToInsert; index++)
+        {
+            await repository.InsertSubmissionAsync(
+                SubmissionNormalizer.Normalize(
+                    new InterestFormSubmissionRequest
+                    {
+                        Name = $"Retry {index}",
+                        ContactEmail = $"retry-{index}@example.com"
+                    },
+                    Now.AddDays(-2)),
+                CancellationToken.None);
+        }
+
+        var sender = new FakeEmailSender();
+        var clock = new FakeClock(Now);
+        var configuration = new AppConfiguration
+        {
+            AppEnvironment = "test",
+            OperatorEmail = "operator@example.com",
+            NonProductionSafeRecipient = "sink@example.com"
+        };
+        var service = new EmailRetryService(
+            repository,
+            new SubmissionRoutingService(repository, clock),
+            new EmailTemplateService(configuration),
+            new EmailDeliveryOrchestrator(sender, clock),
+            clock,
+            configuration);
+
+        var result = await service.RetryAsync(CancellationToken.None);
+        var remaining = await repository.GetRetryableUnsentSubmissionsAsync(
+            Now.AddDays(1),
+            Now,
+            10,
+            CancellationToken.None);
+
+        Assert.Equal(125, result.Attempted);
+        Assert.Equal(125, result.Sent);
+        Assert.Equal(125, sender.SentMessages.Count);
+        Assert.All(sender.SentMessages, message => Assert.Equal(2, message.Recipients.Count));
+        Assert.Equal(EmailRetryService.MaxRecipientUnitsPerRun, result.RecipientUnitsAttempted);
+        Assert.True(result.StoppedForRecipientBudget);
+        Assert.False(result.StoppedForQuota);
+        Assert.Single(remaining);
     }
 
     private static SubmissionWorkflow BuildWorkflow(

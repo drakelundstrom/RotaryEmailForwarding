@@ -72,7 +72,7 @@ Azure deployments default to Gmail SMTP: `smtp.gmail.com`, port `587`, `StartTls
 
 Submissions are persisted with `SentOnUtc=null` and `EmailDeliveryStatus=Pending` before outbound email starts. The complete routed submission is saved again immediately before the provider call. Only confirmed delivery sets `SentOnUtc` and changes `EmailDeliveryStatus` to `Sent`; retryable SMTP/provider failures and quota failures change the status to `RetryPending` and leave the submission eligible for the scheduled retry function.
 
-Flex Consumption does not support `WEBSITE_TIME_ZONE`, so the retry trigger wakes hourly and only runs when the configured `emailRetryTimeZone` resolves to local hour `03:00`.
+The retry trigger runs once per day at `08:00` UTC. The configured `emailRetryTimeZone` is still used by the retry service to calculate local-day retry windows. Each run has a budget of 250 Gmail recipient quota units, reserving half of the consumer Gmail daily recipient allowance for new submissions and operator notifications. Every distinct address on a retry message consumes one unit, so a message sent to two addresses consumes two units. The service stops before sending a message that would exceed the remaining retry budget, and it also stops immediately if Gmail reports a provider quota failure.
 
 ## Exception Alerts
 
