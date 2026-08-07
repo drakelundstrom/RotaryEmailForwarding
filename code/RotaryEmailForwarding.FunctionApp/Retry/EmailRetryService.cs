@@ -18,6 +18,8 @@ public sealed class EmailRetryService(
     IClock clock,
     AppConfiguration configuration)
 {
+    internal const int MaxSubmissionsPerRun = 250;
+
     public async Task<EmailRetryRunResult> RetryAsync(CancellationToken cancellationToken)
     {
         var now = clock.UtcNow;
@@ -32,7 +34,7 @@ public sealed class EmailRetryService(
         var terminalFailed = 0;
         var stoppedForQuota = false;
 
-        while (!stoppedForQuota)
+        while (!stoppedForQuota && attempted < MaxSubmissionsPerRun)
         {
             // Fetch and process a single submission at a time to avoid burst sends.
             var submissions = await repository.GetRetryableUnsentSubmissionsAsync(

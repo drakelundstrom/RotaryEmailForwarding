@@ -734,14 +734,15 @@ The replacement must include a timer-triggered Azure Function that retries unsen
 
 Schedule:
 
-- Run once every morning at 3:00 AM in the application's business timezone, currently `America/New_York`.
-- If deployed on Azure Functions with NCRONTAB scheduling, the implementation must explicitly document whether the schedule uses UTC or a configured app timezone such as Windows `Eastern Standard Time`.
+- Run once per day at `08:00` UTC.
+- Use the configured business timezone, currently `America/New_York`, only to calculate local-calendar-day retry selection boundaries.
 
 Selection rule:
 
 - At minimum, select every submission from the previous local calendar day where `SentOnUtc` is null and `EmailDeliveryStatus` is `Pending` or `RetryPending`.
 - The preferred implementation should also include older unsent retryable submissions so backlog does not become stranded after repeated provider quota failures.
 - Terminal failures must not be retried automatically unless an operator explicitly resets them to a retryable state.
+- Limit each scheduled run to 250 submissions, half of the consumer Gmail daily sending limit, so capacity remains available for new submissions and operator notifications.
 
 Retry behavior:
 
@@ -1387,7 +1388,7 @@ The rewrite must include automated coverage for:
 - `ReceivedOnUtc` creation, `SentOnUtc` update, and unsent-state persistence
 - Retryable provider failures, especially max-emails-per-day or quota-exceeded responses
 - Partial email-delivery behavior that avoids duplicate messages on retry
-- 3:00 AM timer-trigger selection of previous-day unsent submissions
+- `08:00` UTC timer-trigger selection of previous-local-day unsent submissions
 - Monthly reporting bucket generation and aggregate counts
 - Authorization behavior for public versus admin/reporting endpoints
 
@@ -1460,7 +1461,7 @@ A modernization effort can be considered functionally complete when all of the f
 - Submitters receive an appropriate confirmation or rejection email.
 - Submissions record `ReceivedOnUtc` when stored and record `SentOnUtc` only after all required outbound emails are sent.
 - Retryable or quota-related email failures leave submissions unsent and eligible for scheduled retry.
-- A timer-triggered retry function runs every morning at 3:00 AM and processes unsent retryable submissions from the previous day or older backlog.
+- A timer-triggered retry function runs once per day at `08:00` UTC and processes unsent retryable submissions from the previous local calendar day or older backlog.
 - Operators can maintain district and country contacts through a supported, version-aware workflow.
 - District-level lookup/reporting is available with deterministic version selection.
 - Monthly aggregate reporting is available with clearly defined, correct date-bucket semantics.
@@ -1484,7 +1485,7 @@ The following design decisions are mandatory for the rewrite unless this specifi
 - Define and enforce retention policies for raw request logs and submissions containing PII.
 - Persist structured email-delivery state, including `ReceivedOnUtc`, `SentOnUtc`, delivery status, and attempt history.
 - Treat max-emails-per-day or quota-exceeded provider responses as retryable failures.
-- Add a 3:00 AM scheduled retry function for unsent submissions.
+- Add an `08:00` UTC scheduled retry function for unsent submissions.
 - Provision Cosmos DB resources and required environment configuration as first-class infrastructure.
 - Support `dev`, `test`, and `prod` deployment environments with artifact promotion through the pipeline.
 - Remove or formally replace dead config such as plaintext `appsettings.json` secrets.

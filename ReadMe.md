@@ -72,7 +72,7 @@ Azure deployments default to Gmail SMTP: `smtp.gmail.com`, port `587`, `StartTls
 
 Submissions are persisted with `SentOnUtc=null` and `EmailDeliveryStatus=Pending` before outbound email starts. The complete routed submission is saved again immediately before the provider call. Only confirmed delivery sets `SentOnUtc` and changes `EmailDeliveryStatus` to `Sent`; retryable SMTP/provider failures and quota failures change the status to `RetryPending` and leave the submission eligible for the scheduled retry function.
 
-The retry trigger runs once per day at `08:00` UTC. The configured `emailRetryTimeZone` is still used by the retry service to calculate local-day retry windows.
+The retry trigger runs once per day at `08:00` UTC. The configured `emailRetryTimeZone` is still used by the retry service to calculate local-day retry windows. Each run processes at most 250 submissions, reserving half of Gmail's consumer-account daily sending limit for new submissions and operator notifications.
 
 ## Exception Alerts
 

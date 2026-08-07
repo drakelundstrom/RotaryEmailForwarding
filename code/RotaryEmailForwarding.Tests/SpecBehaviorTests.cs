@@ -790,6 +790,52 @@ public sealed class SpecBehaviorTests
         Assert.NotEqual(TimeZoneInfo.Utc.Id, timeZone.Id);
     }
 
+    [Fact]
+    public async Task EmailRetryService_LimitsEachRunToHalfTheConsumerGmailDailyLimit()
+    {
+        var repository = new InMemoryApplicationRepository();
+        for (var index = 0; index < EmailRetryService.MaxSubmissionsPerRun + 1; index++)
+        {
+            await repository.InsertSubmissionAsync(
+                SubmissionNormalizer.Normalize(
+                    new InterestFormSubmissionRequest
+                    {
+                        Name = $"Retry {index}",
+                        ContactEmail = $"retry-{index}@example.com"
+                    },
+                    Now.AddDays(-2)),
+                CancellationToken.None);
+        }
+
+        var sender = new FakeEmailSender();
+        var clock = new FakeClock(Now);
+        var configuration = new AppConfiguration
+        {
+            AppEnvironment = "test",
+            OperatorEmail = "operator@example.com",
+            NonProductionSafeRecipient = "sink@example.com"
+        };
+        var service = new EmailRetryService(
+            repository,
+            new SubmissionRoutingService(repository, clock),
+            new EmailTemplateService(configuration),
+            new EmailDeliveryOrchestrator(sender, clock),
+            clock,
+            configuration);
+
+        var result = await service.RetryAsync(CancellationToken.None);
+        var remaining = await repository.GetRetryableUnsentSubmissionsAsync(
+            Now.AddDays(1),
+            Now,
+            10,
+            CancellationToken.None);
+
+        Assert.Equal(EmailRetryService.MaxSubmissionsPerRun, result.Attempted);
+        Assert.Equal(EmailRetryService.MaxSubmissionsPerRun, result.Sent);
+        Assert.Equal(EmailRetryService.MaxSubmissionsPerRun, sender.SentMessages.Count);
+        Assert.Single(remaining);
+    }
+
     private static SubmissionWorkflow BuildWorkflow(
         InMemoryApplicationRepository repository,
         FakeEmailSender sender,
