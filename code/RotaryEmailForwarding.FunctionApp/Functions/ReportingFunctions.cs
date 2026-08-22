@@ -73,9 +73,9 @@ public sealed class ReportingFunctions(
         return response;
     }
 
-    [Function("GenerateInterestFormsPerDistrictPerQuarterUpdated")]
-    public async Task<HttpResponseData> GenerateInterestFormsPerDistrictPerQuarterUpdated(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "interest-forms-per-district-per-quarter-updated")] HttpRequestData request,
+    [Function("GenerateSentInterestFormsPerDistrictPerQuarter")]
+    public async Task<HttpResponseData> GenerateSentInterestFormsPerDistrictPerQuarter(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "interest-forms-sent-per-district-per-quarter")] HttpRequestData request,
         CancellationToken cancellationToken)
     {
         if (!authorizationService.IsAuthorized(request))
@@ -83,7 +83,7 @@ public sealed class ReportingFunctions(
             return await ErrorAsync(request, HttpStatusCode.Unauthorized, "Admin authorization is required.");
         }
 
-        var markdown = await reportingService.GenerateInterestFormsByDistrictQuarterMarkdownUpdatedAsync(
+        var markdown = await reportingService.GenerateSentInterestFormsByDistrictQuarterMarkdownAsync(
             DateTimeOffset.UtcNow,
             cancellationToken);
 

@@ -640,14 +640,14 @@ public sealed class SpecBehaviorTests
     }
 
     [Fact]
-    public async Task Reporting_UpdatedInterestFormsByDistrictQuarterUsesOnlySentOnUtc()
+    public async Task Reporting_SentInterestFormsByDistrictQuarterUsesSentOnUtcRange()
     {
         var repository = new InMemoryApplicationRepository();
-        var sentSubmission = SubmissionNormalizer.Normalize(
+        var sentAtRangeStart = SubmissionNormalizer.Normalize(
             new InterestFormSubmissionRequest { CountryOfResidence = "Mexico" },
             new DateTimeOffset(2024, 7, 2, 0, 0, 0, TimeSpan.Zero)) with
         {
-            SentOnUtc = new DateTimeOffset(2026, 7, 2, 0, 0, 0, TimeSpan.Zero),
+            SentOnUtc = new DateTimeOffset(2024, 7, 1, 0, 0, 0, TimeSpan.Zero),
             CosmosTimestamp = new DateTimeOffset(2024, 7, 2, 0, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds()
         };
         var unsentSubmission = SubmissionNormalizer.Normalize(
@@ -657,16 +657,32 @@ public sealed class SpecBehaviorTests
             SentOnUtc = null,
             CosmosTimestamp = new DateTimeOffset(2026, 7, 3, 0, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds()
         };
+        var sentAtRangeEnd = SubmissionNormalizer.Normalize(
+            new InterestFormSubmissionRequest { CountryOfResidence = "USA" },
+            new DateTimeOffset(2026, 7, 4, 0, 0, 0, TimeSpan.Zero)) with
+        {
+            SentOnUtc = new DateTimeOffset(2026, 10, 1, 0, 0, 0, TimeSpan.Zero)
+        };
+        var receivedInsideButSentOutside = SubmissionNormalizer.Normalize(
+            new InterestFormSubmissionRequest { CountryOfResidence = "France" },
+            new DateTimeOffset(2026, 7, 5, 0, 0, 0, TimeSpan.Zero)) with
+        {
+            SentOnUtc = new DateTimeOffset(2024, 6, 30, 23, 59, 59, TimeSpan.Zero)
+        };
 
-        await repository.InsertSubmissionAsync(sentSubmission, CancellationToken.None);
+        await repository.InsertSubmissionAsync(sentAtRangeStart, CancellationToken.None);
         await repository.InsertSubmissionAsync(unsentSubmission, CancellationToken.None);
+        await repository.InsertSubmissionAsync(sentAtRangeEnd, CancellationToken.None);
+        await repository.InsertSubmissionAsync(receivedInsideButSentOutside, CancellationToken.None);
 
-        var markdown = await new ReportingService(repository).GenerateInterestFormsByDistrictQuarterMarkdownUpdatedAsync(
+        var markdown = await new ReportingService(repository).GenerateSentInterestFormsByDistrictQuarterMarkdownAsync(
             new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
             CancellationToken.None);
 
-        Assert.Contains("| Mexico | Other | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |", markdown);
+        Assert.Contains("| Mexico | Other | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |", markdown);
         Assert.DoesNotContain("| Canada |", markdown);
+        Assert.DoesNotContain("| USA |", markdown);
+        Assert.DoesNotContain("| Other countries |", markdown);
     }
 
     [Fact]

@@ -104,7 +104,7 @@ public sealed class ReportingService(IApplicationRepository repository)
             cancellationToken);
     }
 
-    public async Task<string> GenerateInterestFormsByDistrictQuarterMarkdownUpdatedAsync(
+    public async Task<string> GenerateSentInterestFormsByDistrictQuarterMarkdownAsync(
         DateTimeOffset asOfUtc,
         CancellationToken cancellationToken)
     {
