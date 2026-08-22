@@ -1,5 +1,6 @@
 using MailKit.Net.Smtp;
 using MailKit.Security;
+using Microsoft.Extensions.Logging;
 using MimeKit;
 using MimeKit.Text;
 using RotaryEmailForwarding.FunctionApp.Configuration;
@@ -7,7 +8,9 @@ using RotaryEmailForwarding.FunctionApp.Domain;
 
 namespace RotaryEmailForwarding.FunctionApp.Email;
 
-public sealed class SmtpEmailSender(AppConfiguration configuration) : IEmailSender
+public sealed class SmtpEmailSender(
+    AppConfiguration configuration,
+    ILogger<SmtpEmailSender>? logger = null) : IEmailSender
 {
     private const int MaxSendAttempts = 3;
     private const int RetryBaseDelayMilliseconds = 500;
@@ -15,8 +18,26 @@ public sealed class SmtpEmailSender(AppConfiguration configuration) : IEmailSend
 
     public async Task<EmailSendResult> SendAsync(OutboundEmailMessage message, CancellationToken cancellationToken)
     {
+        logger?.LogInformation(
+            "[EmailTrace 11] SMTP preflight started. MessageType: {MessageType}, RecipientCount: {RecipientCount}, AppEnvironment: {AppEnvironment}, IsProduction: {IsProduction}, MailHost: {MailHost}, MailPort: {MailPort}, MailSecurityMode: {MailSecurityMode}, HasSendingAddress: {HasSendingAddress}, HasSmtpPassword: {HasSmtpPassword}, HasNonProductionSafeRecipient: {HasNonProductionSafeRecipient}, AllowUnsafeNonProductionEmail: {AllowUnsafeNonProductionEmail}",
+            message.MessageType,
+            message.Recipients.Count,
+            configuration.AppEnvironment,
+            configuration.IsProduction,
+            configuration.MailHost,
+            configuration.MailPort,
+            configuration.MailSecurityMode,
+            !string.IsNullOrWhiteSpace(configuration.SendingEmailAddress),
+            !string.IsNullOrWhiteSpace(configuration.SendingEmailPassword),
+            !string.IsNullOrWhiteSpace(configuration.NonProductionSafeRecipient),
+            configuration.AllowUnsafeNonProductionEmail);
+
         if (message.Recipients.Count == 0)
         {
+            logger?.LogWarning(
+                "[EmailTrace 11 FAILED] SMTP preflight failed. MessageType: {MessageType}, ReasonCode: {ReasonCode}",
+                message.MessageType,
+                "NoRecipients");
             return EmailSendResult.Failed(
                 OutboundEmailAttemptStatus.TerminalFailed,
                 "NoRecipients",
@@ -25,6 +46,10 @@ public sealed class SmtpEmailSender(AppConfiguration configuration) : IEmailSend
 
         if (!EmailAddressUtility.IsUsable(configuration.SendingEmailAddress))
         {
+            logger?.LogWarning(
+                "[EmailTrace 11 FAILED] SMTP preflight failed. MessageType: {MessageType}, ReasonCode: {ReasonCode}",
+                message.MessageType,
+                "MissingSendingEmailAddress");
             return EmailSendResult.Failed(
                 OutboundEmailAttemptStatus.TerminalFailed,
                 "MissingSendingEmailAddress",
@@ -35,6 +60,10 @@ public sealed class SmtpEmailSender(AppConfiguration configuration) : IEmailSend
             && string.IsNullOrWhiteSpace(configuration.NonProductionSafeRecipient)
             && !configuration.AllowUnsafeNonProductionEmail)
         {
+            logger?.LogWarning(
+                "[EmailTrace 11 FAILED] SMTP preflight failed. MessageType: {MessageType}, ReasonCode: {ReasonCode}",
+                message.MessageType,
+                "UnsafeNonProductionEmailBlocked");
             return EmailSendResult.Failed(
                 OutboundEmailAttemptStatus.TerminalFailed,
                 "UnsafeNonProductionEmailBlocked",
@@ -43,6 +72,10 @@ public sealed class SmtpEmailSender(AppConfiguration configuration) : IEmailSend
 
         if (string.IsNullOrWhiteSpace(configuration.SendingEmailPassword))
         {
+            logger?.LogWarning(
+                "[EmailTrace 11 FAILED] SMTP preflight failed. MessageType: {MessageType}, ReasonCode: {ReasonCode}",
+                message.MessageType,
+                "MissingSmtpPassword");
             return EmailSendResult.Failed(
                 OutboundEmailAttemptStatus.TerminalFailed,
                 "MissingSmtpPassword",
@@ -51,8 +84,17 @@ public sealed class SmtpEmailSender(AppConfiguration configuration) : IEmailSend
 
         for (var attempt = 1; attempt <= MaxSendAttempts; attempt++)
         {
+            var lastCompletedStep = 11;
             try
             {
+                logger?.LogInformation(
+                    "[EmailTrace 12] SMTP attempt starting. MessageType: {MessageType}, Attempt: {Attempt}, MaximumAttempts: {MaximumAttempts}, EffectiveRecipientCount: {EffectiveRecipientCount}",
+                    message.MessageType,
+                    attempt,
+                    MaxSendAttempts,
+                    EffectiveRecipients(message.Recipients).Count);
+                lastCompletedStep = 12;
+
                 using var emailClient = new SmtpClient
                 {
                     Timeout = SmtpTimeoutMilliseconds
@@ -67,11 +109,32 @@ public sealed class SmtpEmailSender(AppConfiguration configuration) : IEmailSend
                     configuration.MailPort,
                     ResolveSocketOptions(configuration.MailSecurityMode),
                     cancellationToken);
+                logger?.LogInformation(
+                    "[EmailTrace 13] SMTP connection established. MessageType: {MessageType}, Attempt: {Attempt}, IsConnected: {IsConnected}, IsSecure: {IsSecure}",
+                    message.MessageType,
+                    attempt,
+                    emailClient.IsConnected,
+                    emailClient.IsSecure);
+                lastCompletedStep = 13;
+
                 await emailClient.AuthenticateAsync(
                     configuration.SendingEmailAddress,
                     configuration.SendingEmailPassword,
                     cancellationToken);
+                logger?.LogInformation(
+                    "[EmailTrace 14] SMTP authentication completed. MessageType: {MessageType}, Attempt: {Attempt}, IsAuthenticated: {IsAuthenticated}",
+                    message.MessageType,
+                    attempt,
+                    emailClient.IsAuthenticated);
+                lastCompletedStep = 14;
+
                 await emailClient.SendAsync(emailToSend, cancellationToken);
+                logger?.LogInformation(
+                    "[EmailTrace 15] SMTP provider accepted message. MessageType: {MessageType}, Attempt: {Attempt}, RecipientCount: {RecipientCount}",
+                    message.MessageType,
+                    attempt,
+                    EffectiveRecipients(message.Recipients).Count);
+                lastCompletedStep = 15;
 
                 // SendAsync completed, so the provider accepted the message. A failure while
                 // politely closing the connection must not cause the message to be sent twice.
@@ -81,6 +144,11 @@ public sealed class SmtpEmailSender(AppConfiguration configuration) : IEmailSend
                 }
                 catch (Exception exception) when (IsHandledSmtpException(exception))
                 {
+                    logger?.LogWarning(
+                        "[EmailTrace 15 WARNING] SMTP disconnect failed after provider acceptance. MessageType: {MessageType}, Attempt: {Attempt}, ExceptionType: {ExceptionType}",
+                        message.MessageType,
+                        attempt,
+                        exception.GetType().Name);
                     // Disposal will close the connection.
                 }
 
@@ -93,6 +161,15 @@ public sealed class SmtpEmailSender(AppConfiguration configuration) : IEmailSend
             catch (Exception exception) when (IsHandledSmtpException(exception))
             {
                 var result = Classify(exception);
+                logger?.LogWarning(
+                    "[EmailTrace SMTP FAILED] SMTP attempt failed after step {LastCompletedStep}. MessageType: {MessageType}, Attempt: {Attempt}, MaximumAttempts: {MaximumAttempts}, ExceptionType: {ExceptionType}, AttemptStatus: {AttemptStatus}, ProviderCode: {ProviderCode}",
+                    lastCompletedStep,
+                    message.MessageType,
+                    attempt,
+                    MaxSendAttempts,
+                    exception.GetType().Name,
+                    result.Status,
+                    result.ProviderCode);
                 if (result.Status != OutboundEmailAttemptStatus.RetryableFailed || attempt == MaxSendAttempts)
                 {
                     return result;
