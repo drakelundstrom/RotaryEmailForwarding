@@ -34,6 +34,11 @@ public sealed class SubmitInterestFunction(
 
         if (rawBody.Length > configuration.MaxRequestBodyBytes)
         {
+            logger.LogError(
+                "Rejected oversized interest form submission. CorrelationId: {CorrelationId}, RequestBodyLength: {RequestBodyLength}, MaxRequestBodyBytes: {MaxRequestBodyBytes}",
+                correlationId,
+                rawBody.Length,
+                configuration.MaxRequestBodyBytes);
             return await CreateErrorResponse(
                 request,
                 HttpStatusCode.BadRequest,
@@ -74,7 +79,7 @@ public sealed class SubmitInterestFunction(
         }
         catch (JsonException exception)
         {
-            logger.LogWarning(exception, "Rejected malformed interest form submission payload. CorrelationId: {CorrelationId}", correlationId);
+            logger.LogError(exception, "Rejected malformed interest form submission payload. CorrelationId: {CorrelationId}", correlationId);
             await SendOperatorFailureAsync(
                 correlationId,
                 $"Failure to process submission or send email: {exception.Message}",
@@ -88,6 +93,9 @@ public sealed class SubmitInterestFunction(
 
         if (submissionRequest is null)
         {
+            logger.LogError(
+                "Rejected null interest form submission payload. CorrelationId: {CorrelationId}",
+                correlationId);
             await SendOperatorFailureAsync(
                 correlationId,
                 "Failure to process submission or send email: request body deserialized to null.",
@@ -126,6 +134,16 @@ public sealed class SubmitInterestFunction(
             EmailDeliveryStatus.RetryPending => HttpStatusCode.Accepted,
             _ => HttpStatusCode.InternalServerError
         };
+
+        if (result.Submission.Errors.Count > 0)
+        {
+            logger.LogError(
+                "Interest form submission completed with errors. CorrelationId: {CorrelationId}, SubmissionId: {SubmissionId}, DeliveryStatus: {DeliveryStatus}, Errors: {Errors}",
+                correlationId,
+                result.Submission.Id,
+                result.Submission.EmailDeliveryStatus,
+                string.Join("; ", result.Submission.Errors));
+        }
 
         var response = request.CreateResponse(statusCode);
         await response.WriteAsJsonAsync(new
@@ -167,7 +185,7 @@ public sealed class SubmitInterestFunction(
             return;
         }
 
-        logger.LogInformation(
+        logger.LogError(
             "Interest form submission included unhandled fields. CorrelationId: {CorrelationId}, Fields: {UnhandledFields}",
             correlationId,
             string.Join(", ", request.UnhandledFields.Keys.OrderBy(key => key, StringComparer.OrdinalIgnoreCase)));

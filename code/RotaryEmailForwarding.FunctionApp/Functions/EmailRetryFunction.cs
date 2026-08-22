@@ -14,14 +14,28 @@ public sealed class EmailRetryFunction(
         CancellationToken cancellationToken)
     {
         var result = await retryService.RetryAsync(cancellationToken);
-        logger.LogInformation(
-            "Email retry completed. Attempted: {Attempted}, Sent: {Sent}, RetryPending: {RetryPending}, TerminalFailed: {TerminalFailed}, RecipientUnitsAttempted: {RecipientUnitsAttempted}, StoppedForRecipientBudget: {StoppedForRecipientBudget}, StoppedForQuota: {StoppedForQuota}",
+        const string message = "Email retry completed. Attempted: {Attempted}, Sent: {Sent}, RetryPending: {RetryPending}, TerminalFailed: {TerminalFailed}, RecipientUnitsAttempted: {RecipientUnitsAttempted}, StoppedForRecipientBudget: {StoppedForRecipientBudget}, StoppedForQuota: {StoppedForQuota}";
+        var arguments = new object[]
+        {
             result.Attempted,
             result.Sent,
             result.RetryPending,
             result.TerminalFailed,
             result.RecipientUnitsAttempted,
             result.StoppedForRecipientBudget,
-            result.StoppedForQuota);
+            result.StoppedForQuota
+        };
+
+        if (result.RetryPending > 0
+            || result.TerminalFailed > 0
+            || result.StoppedForRecipientBudget
+            || result.StoppedForQuota)
+        {
+            logger.LogError(message, arguments);
+        }
+        else
+        {
+            logger.LogInformation(message, arguments);
+        }
     }
 }

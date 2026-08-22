@@ -68,7 +68,10 @@ public sealed class InMemoryApplicationRepository : IApplicationRepository
         {
             var results = submissions
                 .Where(submission => submission.SentOnUtc is null)
-                .Where(submission => submission.EmailDeliveryStatus is EmailDeliveryStatus.Pending or EmailDeliveryStatus.RetryPending)
+                .Where(submission => submission.EmailDeliveryStatus is
+                    EmailDeliveryStatus.Pending or
+                    EmailDeliveryStatus.RetryPending or
+                    EmailDeliveryStatus.TerminalFailed)
                 .Where(submission => submission.NextEmailAttemptOnUtc is null || submission.NextEmailAttemptOnUtc <= nowUtc)
                 .Where(submission => submission.ReceivedOnUtc < retryWindowEndUtc)
                 .OrderBy(submission => submission.ReceivedOnUtc)

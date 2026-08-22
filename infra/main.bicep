@@ -27,8 +27,8 @@ param applicationInsightsName string
 @description('Log Analytics workspace name.')
 param logAnalyticsWorkspaceName string
 
-@description('Email addresses notified when Application Insights records exceptions.')
-param exceptionAlertEmailAddresses array = [
+@description('Email addresses notified when Application Insights records exceptions or failed requests.')
+param alertEmailAddresses array = [
   'DrakeLundstrom@gmail.com'
   'studyabroadscholarshipswebsite@gmail.com'
 ]
@@ -144,15 +144,15 @@ resource applicationInsights 'Microsoft.Insights/components@2020-02-02' = {
   }
 }
 
-resource exceptionAlertActionGroup 'Microsoft.Insights/actionGroups@2023-01-01' = {
+resource applicationAlertActionGroup 'Microsoft.Insights/actionGroups@2023-01-01' = {
   name: '${applicationInsightsName}-exceptions-ag'
   location: 'global'
   tags: tags
   properties: {
     groupShortName: 'AppExcept'
     enabled: true
-    emailReceivers: [for (emailAddress, index) in exceptionAlertEmailAddresses: {
-      name: 'Exception email ${index + 1}'
+    emailReceivers: [for (emailAddress, index) in alertEmailAddresses: {
+      name: 'Application alert email ${index + 1}'
       emailAddress: emailAddress
       useCommonAlertSchema: true
     }]
@@ -165,8 +165,8 @@ resource applicationExceptionAlert 'Microsoft.Insights/scheduledQueryRules@2023-
   kind: 'LogAlert'
   tags: tags
   properties: {
-    displayName: '${applicationInsightsName} exceptions'
-    description: 'Email the website operators when Application Insights records one or more exception telemetry items.'
+    displayName: '${applicationInsightsName} application errors'
+    description: 'Email the website operators when Application Insights records exceptions, error-level traces, or failed dependencies.'
     severity: 1
     enabled: true
     scopes: [
@@ -177,7 +177,7 @@ resource applicationExceptionAlert 'Microsoft.Insights/scheduledQueryRules@2023-
     criteria: {
       allOf: [
         {
-          query: 'exceptions'
+          query: 'union exceptions, (traces | where severityLevel >= 3), (dependencies | where success == false)'
           operator: 'GreaterThan'
           threshold: 0
           timeAggregation: 'Count'
@@ -193,7 +193,47 @@ resource applicationExceptionAlert 'Microsoft.Insights/scheduledQueryRules@2023-
     skipQueryValidation: false
     actions: {
       actionGroups: [
-        exceptionAlertActionGroup.id
+        applicationAlertActionGroup.id
+      ]
+    }
+  }
+}
+
+resource applicationFailedRequestAlert 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = {
+  name: '${applicationInsightsName}-failed-requests-alert'
+  location: location
+  kind: 'LogAlert'
+  tags: tags
+  properties: {
+    displayName: '${applicationInsightsName} failed requests'
+    description: 'Notify the website operators when Application Insights records one or more unsuccessful HTTP requests.'
+    severity: 1
+    enabled: true
+    scopes: [
+      applicationInsights.id
+    ]
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT5M'
+    criteria: {
+      allOf: [
+        {
+          query: 'requests | where success == false or toint(resultCode) >= 400'
+          operator: 'GreaterThan'
+          threshold: 0
+          timeAggregation: 'Count'
+          failingPeriods: {
+            numberOfEvaluationPeriods: 1
+            minFailingPeriodsToAlert: 1
+          }
+        }
+      ]
+    }
+    autoMitigate: true
+    checkWorkspaceAlertsStorageConfigured: false
+    skipQueryValidation: false
+    actions: {
+      actionGroups: [
+        applicationAlertActionGroup.id
       ]
     }
   }
