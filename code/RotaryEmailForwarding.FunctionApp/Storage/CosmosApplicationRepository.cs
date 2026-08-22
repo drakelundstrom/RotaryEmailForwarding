@@ -192,6 +192,29 @@ public sealed class CosmosApplicationRepository : IApplicationRepository
             cancellationToken);
     }
 
+    public Task<IReadOnlyList<NormalizedInterestFormSubmission>> GetSubmissionsBySentOnRangeAsync(
+        DateTimeOffset startUtc,
+        DateTimeOffset endUtc,
+        CancellationToken cancellationToken)
+    {
+        const string query = """
+            SELECT * FROM c
+            WHERE c.Type = @type
+              AND IS_DEFINED(c.SentOnUtc)
+              AND NOT IS_NULL(c.SentOnUtc)
+              AND c.SentOnUtc >= @startUtc
+              AND c.SentOnUtc < @endUtc
+            ORDER BY c.SentOnUtc ASC
+            """;
+
+        return QueryAsync<NormalizedInterestFormSubmission>(
+            new QueryDefinition(query)
+                .WithParameter("@type", SubmissionType)
+                .WithParameter("@startUtc", startUtc)
+                .WithParameter("@endUtc", endUtc),
+            cancellationToken);
+    }
+
     public Task<IReadOnlyList<ContactsForDistrict>> GetEffectiveDistrictContactsAsync(
         DateTimeOffset asOfUtc,
         CancellationToken cancellationToken)

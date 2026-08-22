@@ -640,6 +640,36 @@ public sealed class SpecBehaviorTests
     }
 
     [Fact]
+    public async Task Reporting_UpdatedInterestFormsByDistrictQuarterUsesOnlySentOnUtc()
+    {
+        var repository = new InMemoryApplicationRepository();
+        var sentSubmission = SubmissionNormalizer.Normalize(
+            new InterestFormSubmissionRequest { CountryOfResidence = "Mexico" },
+            new DateTimeOffset(2024, 7, 2, 0, 0, 0, TimeSpan.Zero)) with
+        {
+            SentOnUtc = new DateTimeOffset(2026, 7, 2, 0, 0, 0, TimeSpan.Zero),
+            CosmosTimestamp = new DateTimeOffset(2024, 7, 2, 0, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds()
+        };
+        var unsentSubmission = SubmissionNormalizer.Normalize(
+            new InterestFormSubmissionRequest { CountryOfResidence = "Canada" },
+            new DateTimeOffset(2026, 7, 3, 0, 0, 0, TimeSpan.Zero)) with
+        {
+            SentOnUtc = null,
+            CosmosTimestamp = new DateTimeOffset(2026, 7, 3, 0, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds()
+        };
+
+        await repository.InsertSubmissionAsync(sentSubmission, CancellationToken.None);
+        await repository.InsertSubmissionAsync(unsentSubmission, CancellationToken.None);
+
+        var markdown = await new ReportingService(repository).GenerateInterestFormsByDistrictQuarterMarkdownUpdatedAsync(
+            new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
+            CancellationToken.None);
+
+        Assert.Contains("| Mexico | Other | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |", markdown);
+        Assert.DoesNotContain("| Canada |", markdown);
+    }
+
+    [Fact]
     public void Configuration_DoesNotDefaultMaintenanceEmails()
     {
         var configuration = new ConfigurationBuilder().Build();

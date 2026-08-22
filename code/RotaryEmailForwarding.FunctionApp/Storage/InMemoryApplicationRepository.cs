@@ -154,6 +154,25 @@ public sealed class InMemoryApplicationRepository : IApplicationRepository
         }
     }
 
+    public Task<IReadOnlyList<NormalizedInterestFormSubmission>> GetSubmissionsBySentOnRangeAsync(
+        DateTimeOffset startUtc,
+        DateTimeOffset endUtc,
+        CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            var results = submissions
+                .Where(submission =>
+                    submission.SentOnUtc is { } sentOnUtc
+                    && sentOnUtc >= startUtc
+                    && sentOnUtc < endUtc)
+                .OrderBy(submission => submission.SentOnUtc)
+                .ToList();
+
+            return Task.FromResult<IReadOnlyList<NormalizedInterestFormSubmission>>(results);
+        }
+    }
+
     public Task<IReadOnlyList<ContactsForDistrict>> GetEffectiveDistrictContactsAsync(
         DateTimeOffset asOfUtc,
         CancellationToken cancellationToken)

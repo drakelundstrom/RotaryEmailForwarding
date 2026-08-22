@@ -34,6 +34,11 @@ public interface IApplicationRepository
         DateTimeOffset endUtc,
         CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<NormalizedInterestFormSubmission>> GetSubmissionsBySentOnRangeAsync(
+        DateTimeOffset startUtc,
+        DateTimeOffset endUtc,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyList<ContactsForDistrict>> GetEffectiveDistrictContactsAsync(
         DateTimeOffset asOfUtc,
         CancellationToken cancellationToken);
