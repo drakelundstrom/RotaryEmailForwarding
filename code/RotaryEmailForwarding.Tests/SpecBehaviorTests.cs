@@ -783,6 +783,39 @@ public sealed class SpecBehaviorTests
     }
 
     [Fact]
+    public async Task SmtpSender_LogsNumberedPreflightFailureWithoutSecretValues()
+    {
+        const string senderAddress = "sender@example.com";
+        const string smtpPassword = "super-secret-password";
+        var logger = new RecordingLogger<SmtpEmailSender>();
+        var sender = new SmtpEmailSender(
+            new AppConfiguration
+            {
+                AppEnvironment = "prod",
+                SendingEmailAddress = senderAddress,
+                SendingEmailPassword = smtpPassword
+            },
+            logger);
+
+        var result = await sender.SendAsync(
+            new OutboundEmailMessage(
+                "message",
+                OutboundEmailMessageType.OperatorFallback,
+                [],
+                "subject",
+                "body"),
+            CancellationToken.None);
+
+        Assert.Equal(OutboundEmailAttemptStatus.TerminalFailed, result.Status);
+        Assert.Equal("NoRecipients", result.ProviderCode);
+        var logText = string.Join(Environment.NewLine, logger.Entries.Select(entry => entry.Message));
+        Assert.Contains("[EmailTrace 11 FAILED]", logText);
+        Assert.Contains("NoRecipients", logText);
+        Assert.DoesNotContain(senderAddress, logText);
+        Assert.DoesNotContain(smtpPassword, logText);
+    }
+
+    [Fact]
     public void SmtpSender_PutsAllRecipientsOnOneVisibleToHeader()
     {
         var mimeMessage = SmtpEmailSender.BuildMimeMessage(

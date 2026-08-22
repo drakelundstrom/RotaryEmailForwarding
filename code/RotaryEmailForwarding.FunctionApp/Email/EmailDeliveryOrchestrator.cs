@@ -21,13 +21,32 @@ public sealed class EmailDeliveryOrchestrator(
         var hadTerminalFailure = false;
         var hadQuotaFailure = false;
 
+        logger?.LogInformation(
+            "[EmailTrace 09] Email delivery orchestration started. CorrelationId: {CorrelationId}, SubmissionId: {SubmissionId}, MessageCount: {MessageCount}, PriorAttemptCount: {PriorAttemptCount}",
+            submission.CorrelationId,
+            submission.Id,
+            messages.Count,
+            attempts.Count);
+
         foreach (var message in messages)
         {
             if (attempts.Any(attempt => attempt.MessageKey == message.MessageKey
                     && attempt.Status == OutboundEmailAttemptStatus.Succeeded))
             {
+                logger?.LogInformation(
+                    "[EmailTrace 10 SKIPPED] Previously delivered email message skipped. CorrelationId: {CorrelationId}, SubmissionId: {SubmissionId}, MessageType: {MessageType}",
+                    submission.CorrelationId,
+                    submission.Id,
+                    message.MessageType);
                 continue;
             }
+
+            logger?.LogInformation(
+                "[EmailTrace 10] Email delivery attempt starting. CorrelationId: {CorrelationId}, SubmissionId: {SubmissionId}, MessageType: {MessageType}, RecipientCount: {RecipientCount}",
+                submission.CorrelationId,
+                submission.Id,
+                message.MessageType,
+                message.Recipients.Count);
 
             EmailSendResult result;
             if (message.Recipients.Count == 0)
@@ -43,6 +62,13 @@ public sealed class EmailDeliveryOrchestrator(
             }
 
             attempts.Add(ToAttempt(message, result));
+            logger?.LogInformation(
+                "[EmailTrace 16] Email delivery attempt recorded. CorrelationId: {CorrelationId}, SubmissionId: {SubmissionId}, MessageType: {MessageType}, AttemptStatus: {AttemptStatus}, ProviderCode: {ProviderCode}",
+                submission.CorrelationId,
+                submission.Id,
+                message.MessageType,
+                result.Status,
+                result.ProviderCode);
             LogDeliveryFailure(submission, message, result);
 
             switch (result.Status)
@@ -74,9 +100,10 @@ public sealed class EmailDeliveryOrchestrator(
         var allRequiredMessagesSucceeded = requiredMessageKeys.All(key =>
             attempts.Any(attempt => attempt.MessageKey == key && attempt.Status == OutboundEmailAttemptStatus.Succeeded));
 
+        NormalizedInterestFormSubmission delivered;
         if (allRequiredMessagesSucceeded)
         {
-            return submission with
+            delivered = submission with
             {
                 EmailDeliveryAttempts = attempts,
                 EmailDeliveryStatus = EmailDeliveryStatus.Sent,
@@ -86,16 +113,29 @@ public sealed class EmailDeliveryOrchestrator(
             };
         }
 
-        return submission with
+        else
         {
-            EmailDeliveryAttempts = attempts,
-            EmailDeliveryStatus = hadTerminalFailure && !hadRetryableFailure
-                ? EmailDeliveryStatus.TerminalFailed
-                : EmailDeliveryStatus.RetryPending,
-            SentOnUtc = null,
-            NextEmailAttemptOnUtc = clock.UtcNow.AddDays(1),
-            Errors = errors.Distinct(StringComparer.OrdinalIgnoreCase).ToList()
-        };
+            delivered = submission with
+            {
+                EmailDeliveryAttempts = attempts,
+                EmailDeliveryStatus = hadTerminalFailure && !hadRetryableFailure
+                    ? EmailDeliveryStatus.TerminalFailed
+                    : EmailDeliveryStatus.RetryPending,
+                SentOnUtc = null,
+                NextEmailAttemptOnUtc = clock.UtcNow.AddDays(1),
+                Errors = errors.Distinct(StringComparer.OrdinalIgnoreCase).ToList()
+            };
+        }
+
+        logger?.LogInformation(
+            "[EmailTrace 17] Email delivery status finalized. CorrelationId: {CorrelationId}, SubmissionId: {SubmissionId}, DeliveryStatus: {DeliveryStatus}, AttemptCount: {AttemptCount}, ErrorCount: {ErrorCount}",
+            submission.CorrelationId,
+            submission.Id,
+            delivered.EmailDeliveryStatus,
+            delivered.EmailDeliveryAttempts.Count,
+            delivered.Errors.Count);
+
+        return delivered;
     }
 
     private void LogDeliveryFailure(
