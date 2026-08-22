@@ -96,13 +96,45 @@ public sealed class ReportingService(IApplicationRepository repository)
             quarters[0].Start,
             quarters[^1].End,
             cancellationToken);
+        return await GenerateInterestFormsByDistrictQuarterMarkdownAsync(
+            asOfUtc,
+            quarters,
+            submissions,
+            ReportedOnUtc,
+            cancellationToken);
+    }
+
+    public async Task<string> GenerateSentInterestFormsByDistrictQuarterMarkdownAsync(
+        DateTimeOffset asOfUtc,
+        CancellationToken cancellationToken)
+    {
+        var quarters = BuildQuarterWindow(asOfUtc).ToList();
+        var submissions = await repository.GetSubmissionsBySentOnRangeAsync(
+            quarters[0].Start,
+            quarters[^1].End,
+            cancellationToken);
+        return await GenerateInterestFormsByDistrictQuarterMarkdownAsync(
+            asOfUtc,
+            quarters,
+            submissions,
+            submission => submission.SentOnUtc,
+            cancellationToken);
+    }
+
+    private async Task<string> GenerateInterestFormsByDistrictQuarterMarkdownAsync(
+        DateTimeOffset asOfUtc,
+        List<Quarter> quarters,
+        IReadOnlyList<NormalizedInterestFormSubmission> submissions,
+        Func<NormalizedInterestFormSubmission, DateTimeOffset?> reportDate,
+        CancellationToken cancellationToken)
+    {
         var districtContacts = await repository.GetEffectiveDistrictContactsAsync(asOfUtc, cancellationToken);
         var districtLookup = BuildDistrictLookup(districtContacts);
         var rows = new Dictionary<QuarterlyDistrictReportRow, int[]>();
 
         foreach (var submission in submissions)
         {
-            if (ReportedOnUtc(submission) is not { } reportedOnUtc)
+            if (reportDate(submission) is not { } reportedOnUtc)
             {
                 continue;
             }

@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
+using Microsoft.Extensions.Logging;
 using RotaryEmailForwarding.FunctionApp.Authorization;
 using RotaryEmailForwarding.FunctionApp.Domain;
 using RotaryEmailForwarding.FunctionApp.Services;
@@ -12,7 +13,8 @@ namespace RotaryEmailForwarding.FunctionApp.Functions;
 public sealed class ContactAdminFunctions(
     IApplicationRepository repository,
     AdminAuthorizationService authorizationService,
-    IClock clock)
+    IClock clock,
+    ILogger<ContactAdminFunctions> logger)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -31,8 +33,9 @@ public sealed class ContactAdminFunctions(
         {
             contacts = await JsonSerializer.DeserializeAsync<List<ContactsForDistrict>>(request.Body, JsonOptions, cancellationToken) ?? [];
         }
-        catch (JsonException)
+        catch (JsonException exception)
         {
+            logger.LogError(exception, "Rejected invalid district contact JSON. Path: {Path}", request.Url.AbsolutePath);
             return await ErrorAsync(request, HttpStatusCode.BadRequest, "The request body must be valid district contact JSON.");
         }
 
@@ -71,8 +74,9 @@ public sealed class ContactAdminFunctions(
         {
             contacts = await JsonSerializer.DeserializeAsync<List<ContactsForCountry>>(request.Body, JsonOptions, cancellationToken) ?? [];
         }
-        catch (JsonException)
+        catch (JsonException exception)
         {
+            logger.LogError(exception, "Rejected invalid country contact JSON. Path: {Path}", request.Url.AbsolutePath);
             return await ErrorAsync(request, HttpStatusCode.BadRequest, "The request body must be valid country contact JSON.");
         }
 
@@ -110,6 +114,11 @@ public sealed class ContactAdminFunctions(
         var contact = await repository.GetEffectiveDistrictContactByNameAsync(districtName, clock.UtcNow, cancellationToken);
         if (contact is null)
         {
+            logger.LogError(
+                "HTTP request completed with a non-success response. Path: {Path}, StatusCode: {StatusCode}, Error: {Error}",
+                request.Url.AbsolutePath,
+                (int)HttpStatusCode.NotFound,
+                $"District contact '{districtName}' was not found.");
             return request.CreateResponse(HttpStatusCode.NotFound);
         }
 
@@ -188,8 +197,13 @@ public sealed class ContactAdminFunctions(
         return errors;
     }
 
-    private static async Task<HttpResponseData> ErrorAsync(HttpRequestData request, HttpStatusCode status, string message)
+    private async Task<HttpResponseData> ErrorAsync(HttpRequestData request, HttpStatusCode status, string message)
     {
+        logger.LogError(
+            "HTTP request completed with a non-success response. Path: {Path}, StatusCode: {StatusCode}, Error: {Error}",
+            request.Url.AbsolutePath,
+            (int)status,
+            message);
         var response = request.CreateResponse(status);
         await response.WriteAsJsonAsync(new { error = message });
         return response;

@@ -68,7 +68,10 @@ public sealed class InMemoryApplicationRepository : IApplicationRepository
         {
             var results = submissions
                 .Where(submission => submission.SentOnUtc is null)
-                .Where(submission => submission.EmailDeliveryStatus is EmailDeliveryStatus.Pending or EmailDeliveryStatus.RetryPending)
+                .Where(submission => submission.EmailDeliveryStatus is
+                    EmailDeliveryStatus.Pending or
+                    EmailDeliveryStatus.RetryPending or
+                    EmailDeliveryStatus.TerminalFailed)
                 .Where(submission => submission.NextEmailAttemptOnUtc is null || submission.NextEmailAttemptOnUtc <= nowUtc)
                 .Where(submission => submission.ReceivedOnUtc < retryWindowEndUtc)
                 .OrderBy(submission => submission.ReceivedOnUtc)
@@ -148,6 +151,25 @@ public sealed class InMemoryApplicationRepository : IApplicationRepository
                     && reportedOnUtc < endUtc)
                 .OrderBy(entry => entry.ReportedOnUtc)
                 .Select(entry => entry.Submission)
+                .ToList();
+
+            return Task.FromResult<IReadOnlyList<NormalizedInterestFormSubmission>>(results);
+        }
+    }
+
+    public Task<IReadOnlyList<NormalizedInterestFormSubmission>> GetSubmissionsBySentOnRangeAsync(
+        DateTimeOffset startUtc,
+        DateTimeOffset endUtc,
+        CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            var results = submissions
+                .Where(submission =>
+                    submission.SentOnUtc is { } sentOnUtc
+                    && sentOnUtc >= startUtc
+                    && sentOnUtc < endUtc)
+                .OrderBy(submission => submission.SentOnUtc)
                 .ToList();
 
             return Task.FromResult<IReadOnlyList<NormalizedInterestFormSubmission>>(results);

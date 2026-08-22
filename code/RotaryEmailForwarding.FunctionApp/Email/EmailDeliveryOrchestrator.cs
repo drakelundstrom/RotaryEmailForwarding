@@ -1,10 +1,14 @@
+using Microsoft.Extensions.Logging;
 using RotaryEmailForwarding.FunctionApp.Domain;
 using RotaryEmailForwarding.FunctionApp.Models;
 using RotaryEmailForwarding.FunctionApp.Services;
 
 namespace RotaryEmailForwarding.FunctionApp.Email;
 
-public sealed class EmailDeliveryOrchestrator(IEmailSender emailSender, IClock clock)
+public sealed class EmailDeliveryOrchestrator(
+    IEmailSender emailSender,
+    IClock clock,
+    ILogger<EmailDeliveryOrchestrator>? logger = null)
 {
     public async Task<NormalizedInterestFormSubmission> DeliverAsync(
         NormalizedInterestFormSubmission submission,
@@ -25,18 +29,21 @@ public sealed class EmailDeliveryOrchestrator(IEmailSender emailSender, IClock c
                 continue;
             }
 
+            EmailSendResult result;
             if (message.Recipients.Count == 0)
             {
-                attempts.Add(ToAttempt(
-                    message,
-                    EmailSendResult.Failed(OutboundEmailAttemptStatus.TerminalFailed, "NoRecipients", "Outbound message has no recipients.")));
-                errors.Add($"No recipients for {message.MessageType}");
-                hadTerminalFailure = true;
-                continue;
+                result = EmailSendResult.Failed(
+                    OutboundEmailAttemptStatus.TerminalFailed,
+                    "NoRecipients",
+                    "Outbound message has no recipients.");
+            }
+            else
+            {
+                result = await SendSafelyAsync(message, cancellationToken);
             }
 
-            var result = await SendSafelyAsync(message, cancellationToken);
             attempts.Add(ToAttempt(message, result));
+            LogDeliveryFailure(submission, message, result);
 
             switch (result.Status)
             {
@@ -86,9 +93,33 @@ public sealed class EmailDeliveryOrchestrator(IEmailSender emailSender, IClock c
                 ? EmailDeliveryStatus.TerminalFailed
                 : EmailDeliveryStatus.RetryPending,
             SentOnUtc = null,
-            NextEmailAttemptOnUtc = hadRetryableFailure ? clock.UtcNow.AddDays(1) : null,
+            NextEmailAttemptOnUtc = clock.UtcNow.AddDays(1),
             Errors = errors.Distinct(StringComparer.OrdinalIgnoreCase).ToList()
         };
+    }
+
+    private void LogDeliveryFailure(
+        NormalizedInterestFormSubmission submission,
+        OutboundEmailMessage message,
+        EmailSendResult result)
+    {
+        if (result.Status == OutboundEmailAttemptStatus.Succeeded)
+        {
+            return;
+        }
+
+        var logArguments = new object?[]
+        {
+            submission.CorrelationId,
+            submission.Id,
+            message.MessageType,
+            result.Status,
+            result.ProviderCode,
+            result.ProviderResponse
+        };
+        const string logMessage = "Email delivery failed. CorrelationId: {CorrelationId}, SubmissionId: {SubmissionId}, MessageType: {MessageType}, AttemptStatus: {AttemptStatus}, ProviderCode: {ProviderCode}, ProviderResponse: {ProviderResponse}";
+
+        logger?.LogError(logMessage, logArguments);
     }
 
     private OutboundEmailAttempt ToAttempt(OutboundEmailMessage message, EmailSendResult result)

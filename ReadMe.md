@@ -66,17 +66,18 @@ Azure deployments default to Gmail SMTP: `smtp.gmail.com`, port `587`, `StartTls
 - `GET /api/generate-submissions-by-month?start=...&end=...`: admin monthly reporting, requires `x-admin-api-key`.
 - `GET /api/submissions/district/{districtName}`: admin district submission report, requires `x-admin-api-key`.
 - `GET /api/interest-forms-per-district-per-quarter`: admin markdown report for the current quarter plus the prior 2 years by `ReceivedOnUtc`, falling back to Cosmos `_ts` for legacy records, grouped by country and district, requires `x-admin-api-key`.
+- `GET /api/interest-forms-sent-per-district-per-quarter`: admin markdown report for the current quarter plus the prior 2 years by successful delivery time (`SentOnUtc`), grouped by country and district; unsent and legacy records without `SentOnUtc` are excluded, requires `x-admin-api-key`.
 - `GET /api/health`: anonymous health probe.
 
 ## Delivery and Retry
 
-Submissions are persisted with `SentOnUtc=null` and `EmailDeliveryStatus=Pending` before outbound email starts. The complete routed submission is saved again immediately before the provider call. Only confirmed delivery sets `SentOnUtc` and changes `EmailDeliveryStatus` to `Sent`; retryable SMTP/provider failures and quota failures change the status to `RetryPending` and leave the submission eligible for the scheduled retry function.
+Submissions are persisted with `SentOnUtc=null` and `EmailDeliveryStatus=Pending` before outbound email starts. The complete routed submission is saved again immediately before the provider call. Only confirmed delivery sets `SentOnUtc` and changes `EmailDeliveryStatus` to `Sent`. Retryable SMTP/provider failures and quota failures change the status to `RetryPending`; terminal failures retain `TerminalFailed` for diagnosis. Both failure statuses set `NextEmailAttemptOnUtc` and remain eligible for the scheduled retry function so delivery can recover after configuration or recipient data is corrected.
 
 The retry trigger runs once per day at `08:00` UTC. The configured `emailRetryTimeZone` is still used by the retry service to calculate local-day retry windows. Each run has a budget of 250 Gmail recipient quota units, reserving half of the consumer Gmail daily recipient allowance for new submissions and operator notifications. Every distinct address on a retry message consumes one unit, so a message sent to two addresses consumes two units. The service stops before sending a message that would exceed the remaining retry budget, and it also stops immediately if Gmail reports a provider quota failure.
 
 ## Exception Alerts
 
-Each deployed environment includes an Azure Monitor log search alert on its Application Insights exception telemetry. The alert evaluates five-minute windows and fires when Application Insights records one or more exceptions. Its action group emails `DrakeLundstrom@gmail.com` and `studyabroadscholarshipswebsite@gmail.com` using Azure Monitor's common alert schema. Azure may send an action-group enrollment/confirmation notification when the receivers are first deployed.
+Each deployed environment includes Azure Monitor log search alerts for Application Insights exceptions, error-level traces, failed dependencies, and unsuccessful HTTP requests. The alerts evaluate five-minute windows and fire when Application Insights records one or more exceptions, a trace with `severityLevel >= 3`, a dependency where `success == false`, or a request where `success == false` or the HTTP result code is at least 400. Application code deliberately records rejected inputs, authorization failures, missing records, routing anomalies, handled provider failures, deferred retries, and quota or retry-budget stops at error level so operational problems notify aggressively. Both alerts use the same email-only action group, which notifies `DrakeLundstrom@gmail.com` and `studyabroadscholarshipswebsite@gmail.com` using Azure Monitor's common alert schema. Azure may send an action-group enrollment/confirmation notification when receivers are first deployed.
 
 ## Email Examples
 

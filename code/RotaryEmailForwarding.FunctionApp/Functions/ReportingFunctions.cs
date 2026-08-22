@@ -1,6 +1,7 @@
 using System.Net;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
+using Microsoft.Extensions.Logging;
 using RotaryEmailForwarding.FunctionApp.Authorization;
 using RotaryEmailForwarding.FunctionApp.Reporting;
 
@@ -8,7 +9,8 @@ namespace RotaryEmailForwarding.FunctionApp.Functions;
 
 public sealed class ReportingFunctions(
     ReportingService reportingService,
-    AdminAuthorizationService authorizationService)
+    AdminAuthorizationService authorizationService,
+    ILogger<ReportingFunctions> logger)
 {
     [Function("GenerateSubmissionsByMonth")]
     public async Task<HttpResponseData> GenerateSubmissionsByMonth(
@@ -73,8 +75,33 @@ public sealed class ReportingFunctions(
         return response;
     }
 
-    private static async Task<HttpResponseData> ErrorAsync(HttpRequestData request, HttpStatusCode status, string message)
+    [Function("GenerateSentInterestFormsPerDistrictPerQuarter")]
+    public async Task<HttpResponseData> GenerateSentInterestFormsPerDistrictPerQuarter(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "interest-forms-sent-per-district-per-quarter")] HttpRequestData request,
+        CancellationToken cancellationToken)
     {
+        if (!authorizationService.IsAuthorized(request))
+        {
+            return await ErrorAsync(request, HttpStatusCode.Unauthorized, "Admin authorization is required.");
+        }
+
+        var markdown = await reportingService.GenerateSentInterestFormsByDistrictQuarterMarkdownAsync(
+            DateTimeOffset.UtcNow,
+            cancellationToken);
+
+        var response = request.CreateResponse(HttpStatusCode.OK);
+        response.Headers.Add("Content-Type", "text/markdown; charset=utf-8");
+        await response.WriteStringAsync(markdown, cancellationToken);
+        return response;
+    }
+
+    private async Task<HttpResponseData> ErrorAsync(HttpRequestData request, HttpStatusCode status, string message)
+    {
+        logger.LogError(
+            "HTTP request completed with a non-success response. Path: {Path}, StatusCode: {StatusCode}, Error: {Error}",
+            request.Url.AbsolutePath,
+            (int)status,
+            message);
         var response = request.CreateResponse(status);
         await response.WriteAsJsonAsync(new { error = message });
         return response;

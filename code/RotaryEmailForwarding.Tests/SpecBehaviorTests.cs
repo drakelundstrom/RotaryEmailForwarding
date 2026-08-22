@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using MimeKit;
 using Newtonsoft.Json;
 using RotaryEmailForwarding.FunctionApp.Configuration;
@@ -330,8 +331,12 @@ public sealed class SpecBehaviorTests
             ThrowOnMessageKey = "two",
             ExceptionToThrow = new FormatException("Invalid email address.")
         };
-        var orchestrator = new EmailDeliveryOrchestrator(sender, new FakeClock(Now));
-        var submission = SubmissionNormalizer.Normalize(new InterestFormSubmissionRequest(), Now);
+        var logger = new RecordingLogger<EmailDeliveryOrchestrator>();
+        var orchestrator = new EmailDeliveryOrchestrator(sender, new FakeClock(Now), logger);
+        var submission = SubmissionNormalizer.Normalize(new InterestFormSubmissionRequest(), Now) with
+        {
+            CorrelationId = "delivery-correlation"
+        };
 
         var delivered = await orchestrator.DeliverAsync(
             submission,
@@ -343,11 +348,52 @@ public sealed class SpecBehaviorTests
 
         Assert.Equal(EmailDeliveryStatus.TerminalFailed, delivered.EmailDeliveryStatus);
         Assert.Null(delivered.SentOnUtc);
-        Assert.Null(delivered.NextEmailAttemptOnUtc);
+        Assert.Equal(Now.AddDays(1), delivered.NextEmailAttemptOnUtc);
         Assert.Equal(2, delivered.EmailDeliveryAttempts.Count);
         Assert.Equal(OutboundEmailAttemptStatus.Succeeded, delivered.EmailDeliveryAttempts[0].Status);
         Assert.Equal(OutboundEmailAttemptStatus.TerminalFailed, delivered.EmailDeliveryAttempts[1].Status);
         Assert.Equal("FormatException", delivered.EmailDeliveryAttempts[1].ProviderCode);
+        var errorLog = Assert.Single(logger.Entries, entry => entry.Level == LogLevel.Error);
+        Assert.Contains("delivery-correlation", errorLog.Message);
+        Assert.Contains(submission.Id, errorLog.Message);
+        Assert.Contains("FormatException", errorLog.Message);
+    }
+
+    [Fact]
+    public async Task Repository_RetriesTerminalFailuresWhenTheyAreDue()
+    {
+        var repository = new InMemoryApplicationRepository();
+        var historicalFailure = SubmissionNormalizer.Normalize(
+            new InterestFormSubmissionRequest { Name = "Historical failure" },
+            Now.AddDays(-3)) with
+        {
+            EmailDeliveryStatus = EmailDeliveryStatus.TerminalFailed,
+            NextEmailAttemptOnUtc = null
+        };
+        var scheduledFailure = SubmissionNormalizer.Normalize(
+            new InterestFormSubmissionRequest { Name = "Scheduled failure" },
+            Now.AddDays(-2)) with
+        {
+            EmailDeliveryStatus = EmailDeliveryStatus.TerminalFailed,
+            NextEmailAttemptOnUtc = Now.AddHours(1)
+        };
+
+        await repository.InsertSubmissionAsync(historicalFailure, CancellationToken.None);
+        await repository.InsertSubmissionAsync(scheduledFailure, CancellationToken.None);
+
+        var currentlyDue = await repository.GetRetryableUnsentSubmissionsAsync(
+            Now,
+            Now,
+            10,
+            CancellationToken.None);
+        var dueAfterScheduledTime = await repository.GetRetryableUnsentSubmissionsAsync(
+            Now,
+            Now.AddHours(1),
+            10,
+            CancellationToken.None);
+
+        Assert.Equal(historicalFailure.Id, Assert.Single(currentlyDue).Id);
+        Assert.Equal(2, dueAfterScheduledTime.Count);
     }
 
     [Fact]
@@ -640,6 +686,52 @@ public sealed class SpecBehaviorTests
     }
 
     [Fact]
+    public async Task Reporting_SentInterestFormsByDistrictQuarterUsesSentOnUtcRange()
+    {
+        var repository = new InMemoryApplicationRepository();
+        var sentAtRangeStart = SubmissionNormalizer.Normalize(
+            new InterestFormSubmissionRequest { CountryOfResidence = "Mexico" },
+            new DateTimeOffset(2024, 7, 2, 0, 0, 0, TimeSpan.Zero)) with
+        {
+            SentOnUtc = new DateTimeOffset(2024, 7, 1, 0, 0, 0, TimeSpan.Zero),
+            CosmosTimestamp = new DateTimeOffset(2024, 7, 2, 0, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds()
+        };
+        var unsentSubmission = SubmissionNormalizer.Normalize(
+            new InterestFormSubmissionRequest { CountryOfResidence = "Canada" },
+            new DateTimeOffset(2026, 7, 3, 0, 0, 0, TimeSpan.Zero)) with
+        {
+            SentOnUtc = null,
+            CosmosTimestamp = new DateTimeOffset(2026, 7, 3, 0, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds()
+        };
+        var sentAtRangeEnd = SubmissionNormalizer.Normalize(
+            new InterestFormSubmissionRequest { CountryOfResidence = "USA" },
+            new DateTimeOffset(2026, 7, 4, 0, 0, 0, TimeSpan.Zero)) with
+        {
+            SentOnUtc = new DateTimeOffset(2026, 10, 1, 0, 0, 0, TimeSpan.Zero)
+        };
+        var receivedInsideButSentOutside = SubmissionNormalizer.Normalize(
+            new InterestFormSubmissionRequest { CountryOfResidence = "France" },
+            new DateTimeOffset(2026, 7, 5, 0, 0, 0, TimeSpan.Zero)) with
+        {
+            SentOnUtc = new DateTimeOffset(2024, 6, 30, 23, 59, 59, TimeSpan.Zero)
+        };
+
+        await repository.InsertSubmissionAsync(sentAtRangeStart, CancellationToken.None);
+        await repository.InsertSubmissionAsync(unsentSubmission, CancellationToken.None);
+        await repository.InsertSubmissionAsync(sentAtRangeEnd, CancellationToken.None);
+        await repository.InsertSubmissionAsync(receivedInsideButSentOutside, CancellationToken.None);
+
+        var markdown = await new ReportingService(repository).GenerateSentInterestFormsByDistrictQuarterMarkdownAsync(
+            new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
+            CancellationToken.None);
+
+        Assert.Contains("| Mexico | Other | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |", markdown);
+        Assert.DoesNotContain("| Canada |", markdown);
+        Assert.DoesNotContain("| USA |", markdown);
+        Assert.DoesNotContain("| Other countries |", markdown);
+    }
+
+    [Fact]
     public void Configuration_DoesNotDefaultMaintenanceEmails()
     {
         var configuration = new ConfigurationBuilder().Build();
@@ -875,6 +967,31 @@ public sealed class SpecBehaviorTests
     private sealed class FakeClock(DateTimeOffset now) : IClock
     {
         public DateTimeOffset UtcNow => now;
+    }
+
+    private sealed class RecordingLogger<T> : ILogger<T>
+    {
+        public List<(LogLevel Level, string Message)> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull
+        {
+            return null;
+        }
+
+        public bool IsEnabled(LogLevel logLevel)
+        {
+            return true;
+        }
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            Entries.Add((logLevel, formatter(state, exception)));
+        }
     }
 
     private sealed class FakeEmailSender : IEmailSender

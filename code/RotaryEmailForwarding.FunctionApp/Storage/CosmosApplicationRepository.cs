@@ -66,7 +66,7 @@ public sealed class CosmosApplicationRepository : IApplicationRepository
             SELECT TOP @maxCount * FROM c
             WHERE c.Type = @type
               AND (NOT IS_DEFINED(c.SentOnUtc) OR IS_NULL(c.SentOnUtc))
-              AND (c.EmailDeliveryStatus = 0 OR c.EmailDeliveryStatus = 2 OR c.EmailDeliveryStatus = "Pending" OR c.EmailDeliveryStatus = "RetryPending")
+              AND (c.EmailDeliveryStatus = 0 OR c.EmailDeliveryStatus = 2 OR c.EmailDeliveryStatus = 3 OR c.EmailDeliveryStatus = "Pending" OR c.EmailDeliveryStatus = "RetryPending" OR c.EmailDeliveryStatus = "TerminalFailed")
               AND c.ReceivedOnUtc < @retryWindowEndUtc
               AND (NOT IS_DEFINED(c.NextEmailAttemptOnUtc) OR IS_NULL(c.NextEmailAttemptOnUtc) OR c.NextEmailAttemptOnUtc <= @nowUtc)
             ORDER BY c.ReceivedOnUtc ASC
@@ -189,6 +189,29 @@ public sealed class CosmosApplicationRepository : IApplicationRepository
                 .WithParameter("@endUtc", endUtc)
                 .WithParameter("@startEpochSeconds", startUtc.ToUnixTimeSeconds())
                 .WithParameter("@endEpochSeconds", endUtc.ToUnixTimeSeconds()),
+            cancellationToken);
+    }
+
+    public Task<IReadOnlyList<NormalizedInterestFormSubmission>> GetSubmissionsBySentOnRangeAsync(
+        DateTimeOffset startUtc,
+        DateTimeOffset endUtc,
+        CancellationToken cancellationToken)
+    {
+        const string query = """
+            SELECT * FROM c
+            WHERE c.Type = @type
+              AND IS_DEFINED(c.SentOnUtc)
+              AND NOT IS_NULL(c.SentOnUtc)
+              AND c.SentOnUtc >= @startUtc
+              AND c.SentOnUtc < @endUtc
+            ORDER BY c.SentOnUtc ASC
+            """;
+
+        return QueryAsync<NormalizedInterestFormSubmission>(
+            new QueryDefinition(query)
+                .WithParameter("@type", SubmissionType)
+                .WithParameter("@startUtc", startUtc)
+                .WithParameter("@endUtc", endUtc),
             cancellationToken);
     }
 
