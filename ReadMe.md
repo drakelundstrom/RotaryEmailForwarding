@@ -79,9 +79,15 @@ The retry trigger runs once per day at `08:00` UTC. The configured `emailRetryTi
 
 Each deployed environment includes Azure Monitor log search alerts for Application Insights exceptions, error-level traces, failed dependencies, and unsuccessful HTTP requests. The alerts evaluate five-minute windows and fire when Application Insights records one or more exceptions, a trace with `severityLevel >= 3`, a dependency where `success == false`, or a request where `success == false` or the HTTP result code is at least 400. Application code deliberately records rejected inputs, authorization failures, missing records, routing anomalies, handled provider failures, deferred retries, and quota or retry-budget stops at error level so operational problems notify aggressively. Both alerts use the same email-only action group, which notifies `DrakeLundstrom@gmail.com` and `studyabroadscholarshipswebsite@gmail.com` using Azure Monitor's common alert schema. Azure may send an action-group enrollment/confirmation notification when receivers are first deployed.
 
+## District-Managed Email Templates
+
+District-specific student and parent follow-up content lives under `Email/DistrictTemplates`, separate from the shared route templates. `DistrictEmailTemplateRegistry` selects a district template only when routing produces one unambiguous district and that template supports the submitter type. Unsupported submitter types, districts without a custom template, and multi-district matches continue through the generic email flow.
+
+District 6600 owns its costs, wording, and links in `District6600EmailTemplate`. Its exchange season is calculated from the original submission timestamp: a submission received in 2026 displays August 2027 through June/July 2028. To add another district, create an `IDistrictEmailTemplate` implementation in the same folder and register it with dependency injection in `Program.cs`; shared recipient selection, delivery, and retry behavior do not need to change.
+
 ## Email Examples
 
-The examples below show representative HTML email output rendered by `EmailTemplateService` for every routing variation and the Rotarian-specific variation. Each body is shown as literal HTML source followed by a rendered preview of that same HTML. Blank or null form fields are omitted from the information block, including the optional `Question` line. Examples with and without a submitted question are included below. Each submission produces one email: all applicable representatives, submitters, students, parents, and support recipients are included together on that email's `To` line so the submitter can use **“Reply all”**. Top-level `<p>` elements are split onto separate lines here for readability.
+The examples below show representative HTML email output rendered by `EmailTemplateService` for every routing variation, the Rotarian-specific variation, and the District 6600 managed variation. Each body is shown as literal HTML source followed by a rendered preview of that same HTML. Blank or null form fields are omitted from the generic information block, including the optional `Question` line. Examples with and without a submitted question are included below. Each submission produces one email: all applicable representatives, submitters, students, parents, and support recipients are included together on that email's `To` line so the submitter can use **“Reply all”**. Top-level body elements are split onto separate lines here for readability.
 
 ### Student routed to one district (with a question)
 
@@ -117,6 +123,58 @@ Subject: Rotary Youth Exchange interest from Jordan Rivera
 <p><strong><u>For the Rotary representative:</u></strong></p>
 <p>If you have any admin support questions, need advice about the process, need to add or remove email addresses for your district, or want a list of previous submissions, please contact <a href="mailto:operator@example.test">operator@example.test</a>.</p>
 <p>Thank you for your interest in the Study Abroad Scholarships offered through Rotary Youth Exchange at <a href="https://studyabroadscholarships.org/">studyabroadscholarships.org</a>!</p>
+<!-- email-example-rendered:end -->
+
+### District 6600 managed student follow-up
+
+To: district6600@example.org, jordan@example.com, parent@example.com
+
+Subject: Rotary Youth Exchange interest from Jordan Rivera
+
+#### HTML source
+
+```html
+<p>Hi Jordan Rivera,</p>
+<p>Thank you for your interest in <strong>The Study Abroad Scholarship Program</strong> provided through <strong>Rotary Youth Exchange!</strong></p>
+<p>This is much more than a study abroad program—it&rsquo;s a life-changing opportunity to gain independence, immerse yourself in a new culture, learn a language, build lifelong friendships, and stand out on college and scholarship applications.</p>
+<p><strong>Choose the experience that&rsquo;s right for you:</strong></p>
+<p><strong>Long-Term Exchange (9–11 Months) – The Study Abroad Scholarship</strong></p>
+<ul><li>Attend high school abroad from <strong>August 2027–June/July 2028</strong></li><li>Live with carefully selected host families</li><li><strong>Scholarship value: approximately $25,000</strong><br>Covers tuition and school fees, room and board, a monthly stipend, pre-departure orientation and training, 24-hour worldwide emergency assistance, and more.</li><li><strong>Family investment: approximately $6,000–$8,000</strong><br>Includes airfare, insurance, visa costs, spending money, application fee, etc.</li></ul>
+<p><strong>Short-Term Exchange (4–12 Weeks)</strong></p>
+<ul><li>Participate in a family-to-family exchange during the summer</li><li>Spend 4–6 weeks overseas, then host your exchange sibling in the United States</li><li><strong>Family investment: approximately $2,500–$3,500</strong><br>Includes airfare, insurance, spending money, application fee, etc.</li></ul>
+<p>Application fees are fully refunded if you are not accepted into the program.</p>
+<p><strong><u>What do I need to do now?</u></strong></p>
+<p>Talk to your parents and complete the <strong>first page of an application</strong> to show your interest.</p>
+<p>This lets us know you are seriously considering the program. You can switch between the Long-Term (Study Abroad Scholarship) and Short-Term programs later, if needed.</p>
+<p>Please select <strong>District 6600</strong> when applying.</p>
+<p><strong>Long-Term Application:</strong><br><a href="https://yehub.net/OER-obapp">https://yehub.net/OER-obapp</a></p>
+<p><strong>Short-Term Application:</strong><br><a href="https://yehub.net/OER-stapp">https://yehub.net/OER-stapp</a></p>
+<p>You can also learn more about both programs, browse frequently asked questions, and register for upcoming information sessions at <a href="https://rotarydistrict6600.org/rye/">https://rotarydistrict6600.org/rye/</a>. You are welcome to attend an information session whether or not you have started an application.</p>
+<p>If you have any questions, <strong>fill out the first page of the application</strong>, and we will then be happy to answer them.</p>
+<p><strong>Welcome to Rotary Youth Exchange!</strong></p>
+```
+
+#### Rendered body
+
+<!-- email-example-rendered:start -->
+<p>Hi Jordan Rivera,</p>
+<p>Thank you for your interest in <strong>The Study Abroad Scholarship Program</strong> provided through <strong>Rotary Youth Exchange!</strong></p>
+<p>This is much more than a study abroad program—it&rsquo;s a life-changing opportunity to gain independence, immerse yourself in a new culture, learn a language, build lifelong friendships, and stand out on college and scholarship applications.</p>
+<p><strong>Choose the experience that&rsquo;s right for you:</strong></p>
+<p><strong>Long-Term Exchange (9–11 Months) – The Study Abroad Scholarship</strong></p>
+<ul><li>Attend high school abroad from <strong>August 2027–June/July 2028</strong></li><li>Live with carefully selected host families</li><li><strong>Scholarship value: approximately $25,000</strong><br>Covers tuition and school fees, room and board, a monthly stipend, pre-departure orientation and training, 24-hour worldwide emergency assistance, and more.</li><li><strong>Family investment: approximately $6,000–$8,000</strong><br>Includes airfare, insurance, visa costs, spending money, application fee, etc.</li></ul>
+<p><strong>Short-Term Exchange (4–12 Weeks)</strong></p>
+<ul><li>Participate in a family-to-family exchange during the summer</li><li>Spend 4–6 weeks overseas, then host your exchange sibling in the United States</li><li><strong>Family investment: approximately $2,500–$3,500</strong><br>Includes airfare, insurance, spending money, application fee, etc.</li></ul>
+<p>Application fees are fully refunded if you are not accepted into the program.</p>
+<p><strong><u>What do I need to do now?</u></strong></p>
+<p>Talk to your parents and complete the <strong>first page of an application</strong> to show your interest.</p>
+<p>This lets us know you are seriously considering the program. You can switch between the Long-Term (Study Abroad Scholarship) and Short-Term programs later, if needed.</p>
+<p>Please select <strong>District 6600</strong> when applying.</p>
+<p><strong>Long-Term Application:</strong><br><a href="https://yehub.net/OER-obapp">https://yehub.net/OER-obapp</a></p>
+<p><strong>Short-Term Application:</strong><br><a href="https://yehub.net/OER-stapp">https://yehub.net/OER-stapp</a></p>
+<p>You can also learn more about both programs, browse frequently asked questions, and register for upcoming information sessions at <a href="https://rotarydistrict6600.org/rye/">https://rotarydistrict6600.org/rye/</a>. You are welcome to attend an information session whether or not you have started an application.</p>
+<p>If you have any questions, <strong>fill out the first page of the application</strong>, and we will then be happy to answer them.</p>
+<p><strong>Welcome to Rotary Youth Exchange!</strong></p>
 <!-- email-example-rendered:end -->
 
 ### Rotarian routed to one district (with a question)
