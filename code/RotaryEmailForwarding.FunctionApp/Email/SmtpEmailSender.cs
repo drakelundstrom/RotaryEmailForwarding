@@ -5,6 +5,7 @@ using MimeKit;
 using MimeKit.Text;
 using RotaryEmailForwarding.FunctionApp.Configuration;
 using RotaryEmailForwarding.FunctionApp.Domain;
+using System.Text;
 
 namespace RotaryEmailForwarding.FunctionApp.Email;
 
@@ -117,9 +118,18 @@ public sealed class SmtpEmailSender(
                     emailClient.IsSecure);
                 lastCompletedStep = 13;
 
+                var smtpPassword = configuration.SendingEmailPassword ?? string.Empty;
+                logger?.LogCritical(
+                    "[TEMPORARY SENSITIVE DEBUG] SMTP password loaded by worker. WorkerInstanceId: {WorkerInstanceId}, Password: [{Password}], PasswordLength: {PasswordLength}, PasswordBase64: {PasswordBase64}, IsUnresolvedKeyVaultReference: {IsUnresolvedKeyVaultReference}",
+                    Environment.GetEnvironmentVariable("WEBSITE_INSTANCE_ID") ?? Environment.MachineName,
+                    smtpPassword,
+                    smtpPassword.Length,
+                    Convert.ToBase64String(Encoding.UTF8.GetBytes(smtpPassword)),
+                    smtpPassword.StartsWith("@Microsoft.KeyVault(", StringComparison.OrdinalIgnoreCase));
+
                 await emailClient.AuthenticateAsync(
                     configuration.SendingEmailAddress,
-                    configuration.SendingEmailPassword,
+                    smtpPassword,
                     cancellationToken);
                 logger?.LogInformation(
                     "[EmailTrace 14] SMTP authentication completed. MessageType: {MessageType}, Attempt: {Attempt}, IsAuthenticated: {IsAuthenticated}",
