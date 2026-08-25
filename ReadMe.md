@@ -135,6 +135,10 @@ Subject: Rotary Youth Exchange interest from Jordan Rivera
 
 ```html
 <p>Hi Jordan Rivera,</p>
+<p><strong><u>For the District 6600 Rotary representative:</u></strong></p>
+<p>For reference, here is the information submitted:</p>
+<p><strong>Who are you?:</strong> Student<br><strong>Name:</strong> Jordan Rivera<br><strong>Current age (years):</strong> 16<br><strong>What high school do or will you attend?:</strong> Sandusky High School<br><strong>Student's email:</strong> jordan@example.com<br><strong>Student's phone number:</strong> 555-0100<br><strong>Parent's email:</strong> parent@example.com<br><strong>Parent's phone number:</strong> 555-0101<br><strong>Country of residence:</strong> USA<br><strong>State or province:</strong> Ohio<br><strong>City:</strong> Sandusky<br><strong>Zip code or first 3 of CDN postal code:</strong> 44870<br><strong>Question:</strong> Can I choose a country?</p>
+<p><strong><u>For the submitting student and family:</u></strong></p>
 <p>Thank you for your interest in <strong>The Study Abroad Scholarship Program</strong> provided through <strong>Rotary Youth Exchange!</strong></p>
 <p>This is much more than a study abroad program—it&rsquo;s a life-changing opportunity to gain independence, immerse yourself in a new culture, learn a language, build lifelong friendships, and stand out on college and scholarship applications.</p>
 <p><strong>Choose the experience that&rsquo;s right for you:</strong></p>
@@ -158,6 +162,10 @@ Subject: Rotary Youth Exchange interest from Jordan Rivera
 
 <!-- email-example-rendered:start -->
 <p>Hi Jordan Rivera,</p>
+<p><strong><u>For the District 6600 Rotary representative:</u></strong></p>
+<p>For reference, here is the information submitted:</p>
+<p><strong>Who are you?:</strong> Student<br><strong>Name:</strong> Jordan Rivera<br><strong>Current age (years):</strong> 16<br><strong>What high school do or will you attend?:</strong> Sandusky High School<br><strong>Student's email:</strong> jordan@example.com<br><strong>Student's phone number:</strong> 555-0100<br><strong>Parent's email:</strong> parent@example.com<br><strong>Parent's phone number:</strong> 555-0101<br><strong>Country of residence:</strong> USA<br><strong>State or province:</strong> Ohio<br><strong>City:</strong> Sandusky<br><strong>Zip code or first 3 of CDN postal code:</strong> 44870<br><strong>Question:</strong> Can I choose a country?</p>
+<p><strong><u>For the submitting student and family:</u></strong></p>
 <p>Thank you for your interest in <strong>The Study Abroad Scholarship Program</strong> provided through <strong>Rotary Youth Exchange!</strong></p>
 <p>This is much more than a study abroad program—it&rsquo;s a life-changing opportunity to gain independence, immerse yourself in a new culture, learn a language, build lifelong friendships, and stand out on college and scholarship applications.</p>
 <p><strong>Choose the experience that&rsquo;s right for you:</strong></p>

@@ -30,12 +30,19 @@ public sealed class District6600EmailTemplate : IDistrictEmailTemplate
         var applicationStep = submitterType == InterestFormSubmitterType.Parent
             ? "Talk with your student and complete the <strong>first page of an application</strong> to show your interest."
             : "Talk to your parents and complete the <strong>first page of an application</strong> to show your interest.";
+        var submitterSectionLabel = submitterType == InterestFormSubmitterType.Parent
+            ? "For the submitting family:"
+            : "For the submitting student and family:";
         var departureYear = submission.ReceivedOnUtc.Year + 1;
         var returnYear = departureYear + 1;
 
         var sections = new List<string>
         {
             Paragraph(greeting),
+            SectionLabel("For the District 6600 Rotary representative:"),
+            Paragraph("For reference, here is the information submitted:"),
+            EmailTemplateService.BuildSubmissionInformationBlock(submission),
+            SectionLabel(submitterSectionLabel),
             Paragraph("Thank you for your interest in <strong>The Study Abroad Scholarship Program</strong> provided through <strong>Rotary Youth Exchange!</strong>"),
             Paragraph("This is much more than a study abroad program—it&rsquo;s a life-changing opportunity to gain independence, immerse yourself in a new culture, learn a language, build lifelong friendships, and stand out on college and scholarship applications."),
             Paragraph("<strong>Choose the experience that&rsquo;s right for you:</strong>"),
@@ -70,6 +77,11 @@ public sealed class District6600EmailTemplate : IDistrictEmailTemplate
     private static string Paragraph(string content)
     {
         return $"<p>{content}</p>";
+    }
+
+    private static string SectionLabel(string content)
+    {
+        return Paragraph($"<strong><u>{Html(content)}</u></strong>");
     }
 
     private static string Link(string url, string label)
