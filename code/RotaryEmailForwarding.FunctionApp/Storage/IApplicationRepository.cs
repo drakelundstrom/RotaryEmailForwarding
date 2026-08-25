@@ -11,6 +11,8 @@ public interface IApplicationRepository
 
     Task UpdateSubmissionAsync(NormalizedInterestFormSubmission submission, CancellationToken cancellationToken);
 
+    Task ReplaceSubmissionAsync(NormalizedInterestFormSubmission submission, CancellationToken cancellationToken);
+
     Task<NormalizedInterestFormSubmission?> GetSubmissionAsync(string id, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<NormalizedInterestFormSubmission>> GetRetryableUnsentSubmissionsAsync(

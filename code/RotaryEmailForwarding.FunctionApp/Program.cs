@@ -27,6 +27,7 @@ var host = new HostBuilder()
         services.AddSingleton<IEmailSender, SmtpEmailSender>();
         services.AddSingleton<EmailDeliveryOrchestrator>();
         services.AddSingleton<SubmissionWorkflow>();
+        services.AddSingleton<CatchUpSubmissionWorkflow>();
         services.AddSingleton<EmailRetryService>();
         services.AddSingleton<ReportingService>();
         services.AddSingleton<AdminAuthorizationService>();

@@ -966,6 +966,141 @@ public sealed class SpecBehaviorTests
         Assert.Single(remaining);
     }
 
+    [Fact]
+    public async Task CatchUpWorkflow_ReplacesExistingSubmissionPreservesOriginalDateAndDoesNotResend()
+    {
+        var repository = new InMemoryApplicationRepository();
+        await repository.UpsertDistrictContactsAsync(
+            [
+                new ContactsForDistrict
+                {
+                    Country = "usa",
+                    District = "District 6630",
+                    EmailAddresses = ["rep@example.com"],
+                    ZipCodes = ["44102"]
+                }
+            ],
+            CancellationToken.None);
+        var originalDate = Now.AddHours(-2);
+        var stored = SubmissionNormalizer.Normalize(
+            new InterestFormSubmissionRequest
+            {
+                SubmissionType = "Student",
+                Name = "Catch Up Student",
+                StudentEmail = "student@example.com",
+                CountryOfResidence = "United States",
+                City = "Cleveland",
+                Zipcode = "44102"
+            },
+            originalDate) with
+        {
+            Id = "existing-submission"
+        };
+        await repository.InsertSubmissionAsync(stored, CancellationToken.None);
+
+        var sender = new FakeEmailSender();
+        var workflow = BuildCatchUpWorkflow(repository, sender);
+        var request = new CatchUpSubmissionRequest
+        {
+            OriginalProcessedOnUtc = originalDate.AddMinutes(5),
+            Submission = new InterestFormSubmissionRequest
+            {
+                SubmissionType = "student",
+                Name = "Catch Up Student",
+                StudentEmail = "STUDENT@example.com",
+                CountryOfResidence = "USA",
+                City = "Cleveland",
+                Zipcode = "44102-9999"
+            }
+        };
+
+        var firstRun = await workflow.ProcessAsync([request], CancellationToken.None);
+        var secondRun = await workflow.ProcessAsync([request], CancellationToken.None);
+
+        Assert.Equal(CatchUpSubmissionStatus.Sent, Assert.Single(firstRun.Items).Status);
+        Assert.Equal(CatchUpSubmissionStatus.AlreadySent, Assert.Single(secondRun.Items).Status);
+        var message = Assert.Single(sender.SentMessages);
+        Assert.StartsWith("catch-up:district:existing-submission", message.MessageKey);
+        Assert.DoesNotContain("There was an error with our automated system", message.Body);
+        var updated = await repository.GetSubmissionAsync("existing-submission", CancellationToken.None);
+        Assert.NotNull(updated);
+        Assert.Equal(originalDate, updated.ReceivedOnUtc);
+        Assert.Equal(EmailDeliveryStatus.Sent, updated.EmailDeliveryStatus);
+        var records = await repository.GetSubmissionsByReceivedOnOrStorageTimestampRangeAsync(
+            originalDate.AddDays(-1),
+            originalDate.AddDays(1),
+            CancellationToken.None);
+        Assert.Single(records);
+    }
+
+    [Fact]
+    public async Task CatchUpWorkflow_AmbiguousMatchDoesNotUpdateOrSend()
+    {
+        var repository = new InMemoryApplicationRepository();
+        var originalDate = Now.AddHours(-2);
+        var baseSubmission = SubmissionNormalizer.Normalize(
+            new InterestFormSubmissionRequest
+            {
+                SubmissionType = "Parent",
+                Name = "Same Person",
+                ContactEmail = "same@example.com",
+                CountryOfResidence = "United States",
+                City = "Akron",
+                Zipcode = "44308"
+            },
+            originalDate);
+        await repository.InsertSubmissionAsync(baseSubmission with { Id = "match-one" }, CancellationToken.None);
+        await repository.InsertSubmissionAsync(baseSubmission with { Id = "match-two" }, CancellationToken.None);
+        var sender = new FakeEmailSender();
+        var workflow = BuildCatchUpWorkflow(repository, sender);
+
+        var result = await workflow.ProcessAsync(
+            [
+                new CatchUpSubmissionRequest
+                {
+                    OriginalProcessedOnUtc = originalDate,
+                    Submission = new InterestFormSubmissionRequest
+                    {
+                        SubmissionType = "parent",
+                        Name = "Same Person",
+                        ContactEmail = "same@example.com",
+                        CountryOfResidence = "USA",
+                        City = "Akron",
+                        Zipcode = "44308"
+                    }
+                }
+            ],
+            CancellationToken.None);
+
+        Assert.Equal(CatchUpSubmissionStatus.Ambiguous, Assert.Single(result.Items).Status);
+        Assert.Empty(sender.SentMessages);
+        Assert.Equal(EmailDeliveryStatus.Pending,
+            (await repository.GetSubmissionAsync("match-one", CancellationToken.None))!.EmailDeliveryStatus);
+        Assert.Equal(EmailDeliveryStatus.Pending,
+            (await repository.GetSubmissionAsync("match-two", CancellationToken.None))!.EmailDeliveryStatus);
+    }
+
+    private static CatchUpSubmissionWorkflow BuildCatchUpWorkflow(
+        InMemoryApplicationRepository repository,
+        FakeEmailSender sender)
+    {
+        var clock = new FakeClock(Now);
+        var appConfiguration = new AppConfiguration
+        {
+            AppEnvironment = "test",
+            SendingEmailAddress = "operator@example.com",
+            OperatorEmail = "operator@example.com",
+            SupportEmail = "support@example.com",
+            NonProductionSafeRecipient = "sink@example.com"
+        };
+
+        return new CatchUpSubmissionWorkflow(
+            repository,
+            new SubmissionRoutingService(repository, clock),
+            new EmailTemplateService(appConfiguration),
+            new EmailDeliveryOrchestrator(sender, clock));
+    }
+
     private static SubmissionWorkflow BuildWorkflow(
         InMemoryApplicationRepository repository,
         FakeEmailSender sender,

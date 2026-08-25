@@ -50,6 +50,22 @@ public sealed class InMemoryApplicationRepository : IApplicationRepository
         return Task.CompletedTask;
     }
 
+    public Task ReplaceSubmissionAsync(NormalizedInterestFormSubmission submission, CancellationToken cancellationToken)
+    {
+        lock (gate)
+        {
+            var index = submissions.FindIndex(existing => existing.Id == submission.Id);
+            if (index < 0)
+            {
+                throw new KeyNotFoundException($"Submission '{submission.Id}' does not exist.");
+            }
+
+            submissions[index] = submission;
+        }
+
+        return Task.CompletedTask;
+    }
+
     public Task<NormalizedInterestFormSubmission?> GetSubmissionAsync(string id, CancellationToken cancellationToken)
     {
         lock (gate)

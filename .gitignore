@@ -115,6 +115,10 @@ TestResults/
 # Azure Functions local settings can contain secrets.
 local.settings.json
 
+# Catch-up source exports and generated request batches contain personal data.
+*.csv
+.catchup/
+
 # Local Bicep build output; source parameter files are *.bicepparam.
 /infra/main.json
 /infra/params/*.json

@@ -26,6 +26,17 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
         };
     }
 
+    public OutboundEmailMessage BuildCatchUpMessage(
+        NormalizedInterestFormSubmission submission,
+        SubmissionRoute route)
+    {
+        var standardMessage = BuildMessage(submission, route);
+        return standardMessage with
+        {
+            MessageKey = $"catch-up:{standardMessage.MessageKey}"
+        };
+    }
+
     public OutboundEmailMessage BuildOperatorFailureMessage(
         string correlationId,
         string failureSummary,

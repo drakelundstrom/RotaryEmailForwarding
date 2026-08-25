@@ -41,6 +41,15 @@ public sealed class CosmosApplicationRepository : IApplicationRepository
         return container.UpsertItemAsync(submission, Partition(SubmissionType), cancellationToken: cancellationToken);
     }
 
+    public Task ReplaceSubmissionAsync(NormalizedInterestFormSubmission submission, CancellationToken cancellationToken)
+    {
+        return container.ReplaceItemAsync(
+            submission,
+            submission.Id,
+            Partition(SubmissionType),
+            cancellationToken: cancellationToken);
+    }
+
     public async Task<NormalizedInterestFormSubmission?> GetSubmissionAsync(string id, CancellationToken cancellationToken)
     {
         try

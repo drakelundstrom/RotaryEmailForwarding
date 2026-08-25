@@ -60,6 +60,7 @@ Azure deployments default to Gmail SMTP: `smtp.gmail.com`, port `587`, `StartTls
 ## API Surface
 
 - `POST /api/interest-form-entry`: public form submission endpoint protected by the Function key path.
+- `POST /api/catch-up-interest-form-entries`: admin-only delayed-delivery endpoint; accepts an array of 1-20 entries and requires `x-admin-api-key`.
 - `POST /api/contacts-for-districts`: admin contact upload, requires `x-admin-api-key`.
 - `POST /api/contacts-for-countries`: admin contact upload, requires `x-admin-api-key`.
 - `GET /api/contacts-for-districts/{districtName}`: admin district lookup, requires `x-admin-api-key`.
@@ -68,6 +69,21 @@ Azure deployments default to Gmail SMTP: `smtp.gmail.com`, port `587`, `StartTls
 - `GET /api/interest-forms-per-district-per-quarter`: admin markdown report for the current quarter plus the prior 2 years by `ReceivedOnUtc`, falling back to Cosmos `_ts` for legacy records, grouped by country and district, requires `x-admin-api-key`.
 - `GET /api/interest-forms-sent-per-district-per-quarter`: admin markdown report for the current quarter plus the prior 2 years by successful delivery time (`SentOnUtc`), grouped by country and district; unsent and legacy records without `SentOnUtc` are excluded, requires `x-admin-api-key`.
 - `GET /api/health`: anonymous health probe.
+
+## Catch-up Delivery
+
+The catch-up endpoint sends delayed submissions without inserting new database records. For each request item it finds an existing submission within 12 hours of `originalProcessedOnUtc`, requires a matching student, parent, or contact email plus at least two matching identifying fields, and proceeds only when exactly one record matches. Missing and ambiguous entries are returned without a database change or email. Writes use Cosmos replace semantics, so a vanished or incorrect record cannot be recreated accidentally. Already-sent records are skipped, making reviewed batches safe to rerun.
+
+Catch-up email uses the normal routed email body without additional catch-up wording. The existing record retains its original `ReceivedOnUtc`; only routing and delivery state are updated.
+
+Generate ignored JSON batches of at most 20 entries and a PowerShell file containing the curl commands:
+
+```powershell
+./scripts/New-CatchUpBatches.ps1 -InputCsv ./contact-us-v2-2026-08-22.csv
+./.catchup/curl-commands.ps1
+```
+
+The converter uses the CSV's `Date Updated` value as `originalProcessedOnUtc`, interpreted as UTC. Source CSV files and generated `.catchup` payloads are ignored by git because they contain personal information.
 
 ## Delivery and Retry
 
