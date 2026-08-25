@@ -2,16 +2,28 @@ using System.Globalization;
 using System.Net;
 using RotaryEmailForwarding.FunctionApp.Configuration;
 using RotaryEmailForwarding.FunctionApp.Domain;
+using RotaryEmailForwarding.FunctionApp.Email.DistrictTemplates;
 using RotaryEmailForwarding.FunctionApp.Models;
 using RotaryEmailForwarding.FunctionApp.Routing;
 using RotaryEmailForwarding.FunctionApp.Services;
 
 namespace RotaryEmailForwarding.FunctionApp.Email;
 
-public sealed class EmailTemplateService(AppConfiguration configuration)
+public sealed class EmailTemplateService
 {
     private const string PublicSiteUrl = "https://studyabroadscholarships.org/";
     private const string PublicSiteDisplayName = "studyabroadscholarships.org";
+    private readonly AppConfiguration configuration;
+    private readonly DistrictEmailTemplateRegistry districtTemplateRegistry;
+
+    public EmailTemplateService(
+        AppConfiguration configuration,
+        DistrictEmailTemplateRegistry? districtTemplateRegistry = null)
+    {
+        this.configuration = configuration;
+        this.districtTemplateRegistry = districtTemplateRegistry
+            ?? DistrictEmailTemplateRegistry.CreateDefault();
+    }
 
     public OutboundEmailMessage BuildMessage(
         NormalizedInterestFormSubmission submission,
@@ -69,17 +81,21 @@ public sealed class EmailTemplateService(AppConfiguration configuration)
             BuildInterestedPartyRecipients(submission),
             ShouldCopySupport(submission) ? [configuration.SupportEmail] : []);
 
+        var defaultSubject = BuildForwardingSubject(submission);
+        var districtTemplate = districtTemplateRegistry.FindTemplate(submission, route);
+        var districtContent = districtTemplate?.Render(submission, defaultSubject);
+
         return new OutboundEmailMessage(
             $"district:{submission.Id}",
             OutboundEmailMessageType.DistrictRepresentative,
             recipients,
-            BuildForwardingSubject(submission),
-            BuildSharedBody(
-                BuildSubmitterGreeting(submission),
-                BuildDistrictIntro(submission, route),
-                submission,
-                "your district",
-                BuildRecipientSectionLabel(submission, isManualRouting: false)),
+            districtContent?.Subject ?? defaultSubject,
+            districtContent?.Body ?? BuildSharedBody(
+                    BuildSubmitterGreeting(submission),
+                    BuildDistrictIntro(submission, route),
+                    submission,
+                    "your district",
+                    BuildRecipientSectionLabel(submission, isManualRouting: false)),
             true);
     }
 

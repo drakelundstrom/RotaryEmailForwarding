@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using RotaryEmailForwarding.FunctionApp.Authorization;
 using RotaryEmailForwarding.FunctionApp.Configuration;
 using RotaryEmailForwarding.FunctionApp.Email;
+using RotaryEmailForwarding.FunctionApp.Email.DistrictTemplates;
 using RotaryEmailForwarding.FunctionApp.Reporting;
 using RotaryEmailForwarding.FunctionApp.Retry;
 using RotaryEmailForwarding.FunctionApp.Routing;
@@ -23,6 +24,8 @@ var host = new HostBuilder()
                 ? new InMemoryApplicationRepository()
                 : new CosmosApplicationRepository(appConfiguration));
         services.AddSingleton<SubmissionRoutingService>();
+        services.AddSingleton<IDistrictEmailTemplate, District6600EmailTemplate>();
+        services.AddSingleton<DistrictEmailTemplateRegistry>();
         services.AddSingleton<EmailTemplateService>();
         services.AddSingleton<IEmailSender, SmtpEmailSender>();
         services.AddSingleton<EmailDeliveryOrchestrator>();

@@ -104,6 +104,185 @@ public sealed class SpecBehaviorTests
     }
 
     [Fact]
+    public async Task Workflow_UsesDistrict6600StudentTemplateForSingleDistrictMatch()
+    {
+        var repository = new InMemoryApplicationRepository();
+        await repository.UpsertDistrictContactsAsync(
+            [
+                new ContactsForDistrict
+                {
+                    Country = "usa",
+                    District = "District 6600",
+                    EmailAddresses = ["district6600@example.com"],
+                    ZipCodes = ["44870"]
+                }
+            ],
+            CancellationToken.None);
+
+        var sender = new FakeEmailSender();
+        var workflow = BuildWorkflow(repository, sender);
+        await workflow.ProcessAsync(
+            new InterestFormSubmissionRequest
+            {
+                SubmissionType = "Student",
+                Name = "Jordan Rivera",
+                StudentEmail = "jordan@example.com",
+                ParentEmail = "parent@example.com",
+                CountryOfResidence = "United States",
+                Zipcode = "44870"
+            },
+            "corr-district-6600-student",
+            CancellationToken.None);
+
+        var message = Assert.Single(sender.SentMessages);
+        Assert.Equal(
+            ["district6600@example.com", "jordan@example.com", "parent@example.com"],
+            message.Recipients);
+        Assert.Equal("Rotary Youth Exchange interest from Jordan Rivera", message.Subject);
+        Assert.Contains("<p>Hi Jordan Rivera,</p>", message.Body);
+        Assert.Contains("<strong>The Study Abroad Scholarship Program</strong>", message.Body);
+        Assert.Contains("<strong>August 2027–June/July 2028</strong>", message.Body);
+        Assert.Contains("Talk to your parents and complete the <strong>first page of an application</strong>", message.Body);
+        Assert.Contains("<strong>District 6600</strong>", message.Body);
+        Assert.Contains("https://yehub.net/OER-obapp", message.Body);
+        Assert.Contains("https://yehub.net/OER-stapp", message.Body);
+        Assert.Contains("https://rotarydistrict6600.org/rye/", message.Body);
+        Assert.DoesNotContain("For the submitting student:", message.Body);
+        Assert.DoesNotContain("For reference, here is the information you submitted:", message.Body);
+    }
+
+    [Fact]
+    public void EmailTemplate_UsesDistrict6600ParentWordingAndEncodesName()
+    {
+        var configuration = new AppConfiguration { OperatorEmail = "operator@example.com" };
+        var submission = SubmissionNormalizer.Normalize(
+            new InterestFormSubmissionRequest
+            {
+                SubmissionType = "Parent",
+                Name = "Pat <Parent>",
+                ParentEmail = "parent@example.com",
+                CountryOfResidence = "United States",
+                Zipcode = "44870"
+            },
+            Now);
+        var route = new SubmissionRoute
+        {
+            Kind = SubmissionRouteKind.District,
+            DistrictContacts =
+            [
+                new ContactsForDistrict
+                {
+                    Country = "usa",
+                    District = "6600",
+                    EmailAddresses = ["district6600@example.com"]
+                }
+            ]
+        };
+
+        var message = new EmailTemplateService(configuration).BuildMessage(submission, route);
+
+        Assert.Contains("<p>Hi Pat &lt;Parent&gt;,</p>", message.Body);
+        Assert.Contains("Talk with your student and complete the <strong>first page of an application</strong>", message.Body);
+        Assert.DoesNotContain("Talk to your parents", message.Body);
+    }
+
+    [Fact]
+    public void EmailTemplate_DerivesDistrict6600ExchangeYearsFromSubmissionYear()
+    {
+        var configuration = new AppConfiguration { OperatorEmail = "operator@example.com" };
+        var submission = SubmissionNormalizer.Normalize(
+            new InterestFormSubmissionRequest
+            {
+                SubmissionType = "Student",
+                Name = "Future Student",
+                StudentEmail = "student@example.com",
+                CountryOfResidence = "United States",
+                Zipcode = "44870"
+            },
+            new DateTimeOffset(2027, 12, 31, 23, 59, 59, TimeSpan.Zero));
+        var route = new SubmissionRoute
+        {
+            Kind = SubmissionRouteKind.District,
+            DistrictContacts =
+            [
+                new ContactsForDistrict
+                {
+                    Country = "usa",
+                    District = "6600",
+                    EmailAddresses = ["district6600@example.com"]
+                }
+            ]
+        };
+
+        var message = new EmailTemplateService(configuration).BuildMessage(submission, route);
+
+        Assert.Contains("<strong>August 2028–June/July 2029</strong>", message.Body);
+        Assert.DoesNotContain("August 2027–June/July 2028", message.Body);
+    }
+
+    [Fact]
+    public void EmailTemplate_KeepsGenericFlowForUnsupportedOrAmbiguousDistrict6600Routes()
+    {
+        var configuration = new AppConfiguration { OperatorEmail = "operator@example.com" };
+        var templateService = new EmailTemplateService(configuration);
+        var rotarianSubmission = SubmissionNormalizer.Normalize(
+            new InterestFormSubmissionRequest
+            {
+                SubmissionType = "Rotarian",
+                Name = "Morgan Chen",
+                ContactEmail = "morgan@example.com",
+                CountryOfResidence = "United States",
+                Zipcode = "44870"
+            },
+            Now);
+        var studentSubmission = SubmissionNormalizer.Normalize(
+            new InterestFormSubmissionRequest
+            {
+                SubmissionType = "Student",
+                Name = "Jordan Rivera",
+                StudentEmail = "jordan@example.com",
+                CountryOfResidence = "United States",
+                Zipcode = "44870"
+            },
+            Now);
+        var district6600 = new ContactsForDistrict
+        {
+            Country = "usa",
+            District = "District 6600",
+            EmailAddresses = ["district6600@example.com"]
+        };
+
+        var rotarianMessage = templateService.BuildMessage(
+            rotarianSubmission,
+            new SubmissionRoute
+            {
+                Kind = SubmissionRouteKind.District,
+                DistrictContacts = [district6600]
+            });
+        var ambiguousMessage = templateService.BuildMessage(
+            studentSubmission,
+            new SubmissionRoute
+            {
+                Kind = SubmissionRouteKind.District,
+                DistrictContacts =
+                [
+                    district6600,
+                    new ContactsForDistrict
+                    {
+                        Country = "usa",
+                        District = "District 6630",
+                        EmailAddresses = ["district6630@example.com"]
+                    }
+                ]
+            });
+
+        Assert.Contains("<p>Hello fellow Rotarian,</p>", rotarianMessage.Body);
+        Assert.DoesNotContain("The Study Abroad Scholarship Program", rotarianMessage.Body);
+        Assert.Contains("Your location matched multiple Rotary districts", ambiguousMessage.Body);
+        Assert.DoesNotContain("The Study Abroad Scholarship Program", ambiguousMessage.Body);
+    }
+
+    [Fact]
     public async Task Workflow_QuotaFailureLeavesSubmissionRetryPendingAndUnsent()
     {
         var repository = new InMemoryApplicationRepository();
