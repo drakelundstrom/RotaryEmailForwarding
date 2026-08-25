@@ -349,7 +349,7 @@ public sealed class EmailTemplateService
         sections.AddRange(
         [
             Paragraph("For reference, here is the information you submitted:"),
-            SubmissionInformationBlock(submission)
+            BuildSubmissionInformationBlock(submission)
         ]);
 
         if (routingErrors?.Count > 0)
@@ -370,7 +370,7 @@ public sealed class EmailTemplateService
         return string.Join(Environment.NewLine, sections);
     }
 
-    private static string SubmissionInformationBlock(NormalizedInterestFormSubmission submission)
+    internal static string BuildSubmissionInformationBlock(NormalizedInterestFormSubmission submission)
     {
         var lines = new List<string>();
         AddLine(lines, "Who are you?", submission.SubmissionType);

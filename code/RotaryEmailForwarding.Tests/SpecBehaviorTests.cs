@@ -126,10 +126,17 @@ public sealed class SpecBehaviorTests
             {
                 SubmissionType = "Student",
                 Name = "Jordan Rivera",
+                Age = "16",
+                School = "Sandusky High School",
                 StudentEmail = "jordan@example.com",
+                StudentPhone = "555-0100",
                 ParentEmail = "parent@example.com",
+                ParentPhone = "555-0101",
                 CountryOfResidence = "United States",
-                Zipcode = "44870"
+                State = "Ohio",
+                City = "Sandusky",
+                Zipcode = "44870",
+                SubmissionQuestion = "Can I choose a country?"
             },
             "corr-district-6600-student",
             CancellationToken.None);
@@ -140,6 +147,14 @@ public sealed class SpecBehaviorTests
             message.Recipients);
         Assert.Equal("Rotary Youth Exchange interest from Jordan Rivera", message.Subject);
         Assert.Contains("<p>Hi Jordan Rivera,</p>", message.Body);
+        Assert.Contains("<p><strong><u>For the District 6600 Rotary representative:</u></strong></p>", message.Body);
+        Assert.Contains("<p>For reference, here is the information submitted:</p>", message.Body);
+        Assert.Contains("<strong>Who are you?:</strong> Student", message.Body);
+        Assert.Contains("<strong>Name:</strong> Jordan Rivera", message.Body);
+        Assert.Contains("<strong>Current age (years):</strong> 16", message.Body);
+        Assert.Contains("<strong>What high school do or will you attend?:</strong> Sandusky High School", message.Body);
+        Assert.Contains("<strong>Question:</strong> Can I choose a country?", message.Body);
+        Assert.Contains("<p><strong><u>For the submitting student and family:</u></strong></p>", message.Body);
         Assert.Contains("<strong>The Study Abroad Scholarship Program</strong>", message.Body);
         Assert.Contains("<strong>August 2027–June/July 2028</strong>", message.Body);
         Assert.Contains("Talk to your parents and complete the <strong>first page of an application</strong>", message.Body);
@@ -147,8 +162,9 @@ public sealed class SpecBehaviorTests
         Assert.Contains("https://yehub.net/OER-obapp", message.Body);
         Assert.Contains("https://yehub.net/OER-stapp", message.Body);
         Assert.Contains("https://rotarydistrict6600.org/rye/", message.Body);
-        Assert.DoesNotContain("For the submitting student:", message.Body);
-        Assert.DoesNotContain("For reference, here is the information you submitted:", message.Body);
+        Assert.True(
+            message.Body.IndexOf("For the District 6600 Rotary representative:", StringComparison.Ordinal) <
+            message.Body.IndexOf("The Study Abroad Scholarship Program", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -182,6 +198,7 @@ public sealed class SpecBehaviorTests
         var message = new EmailTemplateService(configuration).BuildMessage(submission, route);
 
         Assert.Contains("<p>Hi Pat &lt;Parent&gt;,</p>", message.Body);
+        Assert.Contains("<p><strong><u>For the submitting family:</u></strong></p>", message.Body);
         Assert.Contains("Talk with your student and complete the <strong>first page of an application</strong>", message.Body);
         Assert.DoesNotContain("Talk to your parents", message.Body);
     }
