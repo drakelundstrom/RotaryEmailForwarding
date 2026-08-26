@@ -28,12 +28,14 @@ public sealed record CountryResults
 
 public sealed class ReportingService(IApplicationRepository repository)
 {
+    private static readonly DateTimeOffset SentReportStartUtc =
+        new(2026, 8, 1, 0, 0, 0, TimeSpan.Zero);
+
     private const string Usa = "USA";
     private const string Canada = "Canada";
     private const string Mexico = "Mexico";
     private const string OtherCountries = "Other countries";
     private const string OtherDistrict = "Other";
-    private const string TestingDistrict = "321";
 
     public async Task<IReadOnlyList<SubmissionsByMonth>> GenerateSubmissionsByMonthAsync(
         DateTimeOffset startUtc,
@@ -104,18 +106,18 @@ public sealed class ReportingService(IApplicationRepository repository)
             cancellationToken);
     }
 
-    public async Task<string> GenerateSentInterestFormsByDistrictQuarterMarkdownAsync(
+    public async Task<string> GenerateSentInterestFormsByDistrictMonthMarkdownAsync(
         DateTimeOffset asOfUtc,
         CancellationToken cancellationToken)
     {
-        var quarters = BuildQuarterWindow(asOfUtc).ToList();
+        var months = BuildSentMonthWindow(asOfUtc).ToList();
         var submissions = await repository.GetSubmissionsBySentOnRangeAsync(
-            quarters[0].Start,
-            quarters[^1].End,
+            months[0].Start,
+            months[^1].End,
             cancellationToken);
         return await GenerateInterestFormsByDistrictQuarterMarkdownAsync(
             asOfUtc,
-            quarters,
+            months,
             submissions,
             submission => submission.SentOnUtc,
             cancellationToken);
@@ -123,14 +125,14 @@ public sealed class ReportingService(IApplicationRepository repository)
 
     private async Task<string> GenerateInterestFormsByDistrictQuarterMarkdownAsync(
         DateTimeOffset asOfUtc,
-        List<Quarter> quarters,
+        List<ReportPeriod> periods,
         IReadOnlyList<NormalizedInterestFormSubmission> submissions,
         Func<NormalizedInterestFormSubmission, DateTimeOffset?> reportDate,
         CancellationToken cancellationToken)
     {
         var districtContacts = await repository.GetEffectiveDistrictContactsAsync(asOfUtc, cancellationToken);
         var districtLookup = BuildDistrictLookup(districtContacts);
-        var rows = new Dictionary<QuarterlyDistrictReportRow, int[]>();
+        var rows = new Dictionary<DistrictReportRow, int[]>();
 
         foreach (var submission in submissions)
         {
@@ -139,10 +141,10 @@ public sealed class ReportingService(IApplicationRepository repository)
                 continue;
             }
 
-            var quarterIndex = quarters.FindIndex(quarter =>
-                reportedOnUtc >= quarter.Start
-                && reportedOnUtc < quarter.End);
-            if (quarterIndex < 0)
+            var periodIndex = periods.FindIndex(period =>
+                reportedOnUtc >= period.Start
+                && reportedOnUtc < period.End);
+            if (periodIndex < 0)
             {
                 continue;
             }
@@ -150,18 +152,18 @@ public sealed class ReportingService(IApplicationRepository repository)
             var country = CountryGroup(submission.CountryOfResidence);
             foreach (var district in DistrictGroups(submission, districtLookup))
             {
-                var row = new QuarterlyDistrictReportRow(country, district);
+                var row = new DistrictReportRow(country, district);
                 if (!rows.TryGetValue(row, out var counts))
                 {
-                    counts = new int[quarters.Count];
+                    counts = new int[periods.Count];
                     rows[row] = counts;
                 }
 
-                counts[quarterIndex]++;
+                counts[periodIndex]++;
             }
         }
 
-        return ToMarkdownTable(quarters, rows);
+        return ToMarkdownTable(periods, rows);
     }
 
     private static CountryResults CountCountry(
@@ -184,19 +186,41 @@ public sealed class ReportingService(IApplicationRepository repository)
             StringComparison.OrdinalIgnoreCase);
     }
 
-    private static IReadOnlyList<Quarter> BuildQuarterWindow(DateTimeOffset asOfUtc)
+    private static IReadOnlyList<ReportPeriod> BuildQuarterWindow(DateTimeOffset asOfUtc)
     {
         var currentQuarter = QuarterStart(asOfUtc);
         var start = currentQuarter.AddYears(-2);
         var end = currentQuarter.AddMonths(3);
-        var quarters = new List<Quarter>();
+        var quarters = new List<ReportPeriod>();
 
         for (var cursor = start; cursor < end; cursor = cursor.AddMonths(3))
         {
-            quarters.Add(new Quarter(cursor, cursor.AddMonths(3), QuarterLabel(cursor)));
+            quarters.Add(new ReportPeriod(cursor, cursor.AddMonths(3), QuarterLabel(cursor)));
         }
 
         return quarters;
+    }
+
+    private static IReadOnlyList<ReportPeriod> BuildSentMonthWindow(DateTimeOffset asOfUtc)
+    {
+        var currentMonth = MonthStart(asOfUtc);
+        var end = currentMonth.AddMonths(1);
+        var months = new List<ReportPeriod>();
+
+        for (var cursor = SentReportStartUtc; cursor < end; cursor = cursor.AddMonths(1))
+        {
+            months.Add(new ReportPeriod(
+                cursor,
+                cursor.AddMonths(1),
+                cursor.ToString("yyyy-MM", CultureInfo.InvariantCulture)));
+        }
+
+        return months;
+    }
+
+    private static DateTimeOffset MonthStart(DateTimeOffset value)
+    {
+        return new DateTimeOffset(value.Year, value.Month, 1, 0, 0, 0, TimeSpan.Zero);
     }
 
     private static DateTimeOffset QuarterStart(DateTimeOffset value)
@@ -262,6 +286,12 @@ public sealed class ReportingService(IApplicationRepository repository)
             return [OtherDistrict];
         }
 
+        var zipcode = SubmissionNormalizer.NormalizeZipcode(submission.Zipcode, normalizedCountry);
+        if (normalizedCountry is "usa" && zipcode is "321")
+        {
+            return [];
+        }
+
         var routedDistricts = submission.RoutedDistricts
             .Where(district => !string.IsNullOrWhiteSpace(district))
             .Select(district => district.Trim())
@@ -270,24 +300,23 @@ public sealed class ReportingService(IApplicationRepository repository)
         if (routedDistricts.Count > 0)
         {
             return routedDistricts
-                .Where(district => !IsIgnoredQuarterlyReportDistrict(district))
+                .Where(district => !IsIgnoredReportDistrict(district))
                 .ToList();
         }
 
-        var zipcode = SubmissionNormalizer.NormalizeZipcode(submission.Zipcode, normalizedCountry);
         if (zipcode is not null
             && districtLookup.TryGetValue(DistrictLookupKey(normalizedCountry, zipcode), out var districts)
             && districts.Count > 0)
         {
             return districts
-                .Where(district => !IsIgnoredQuarterlyReportDistrict(district))
+                .Where(district => !IsIgnoredReportDistrict(district))
                 .ToList();
         }
 
         return [OtherDistrict];
     }
 
-    private static bool IsIgnoredQuarterlyReportDistrict(string district)
+    private static bool IsIgnoredReportDistrict(string district)
     {
         var normalized = district.Trim();
         if (normalized.StartsWith("district", StringComparison.OrdinalIgnoreCase))
@@ -295,7 +324,7 @@ public sealed class ReportingService(IApplicationRepository repository)
             normalized = normalized["district".Length..].Trim();
         }
 
-        return string.Equals(normalized, TestingDistrict, StringComparison.OrdinalIgnoreCase);
+        return normalized is "123" or "321";
     }
 
     private static DateTimeOffset? ReportedOnUtc(NormalizedInterestFormSubmission submission)
@@ -322,17 +351,17 @@ public sealed class ReportingService(IApplicationRepository repository)
     }
 
     private static string ToMarkdownTable(
-        IReadOnlyList<Quarter> quarters,
-        Dictionary<QuarterlyDistrictReportRow, int[]> rows)
+        IReadOnlyList<ReportPeriod> periods,
+        Dictionary<DistrictReportRow, int[]> rows)
     {
         var builder = new StringBuilder();
         builder
             .Append("| Country | District | ")
-            .AppendJoin(" | ", quarters.Select(quarter => MarkdownCell(quarter.Label)))
+            .AppendJoin(" | ", periods.Select(period => MarkdownCell(period.Label)))
             .AppendLine(" |");
         builder
             .Append("| --- | --- | ")
-            .AppendJoin(" | ", quarters.Select(_ => "---:"))
+            .AppendJoin(" | ", periods.Select(_ => "---:"))
             .AppendLine(" |");
 
         foreach (var row in rows
@@ -380,9 +409,9 @@ public sealed class ReportingService(IApplicationRepository repository)
             .Replace("|", "\\|", StringComparison.Ordinal);
     }
 
-    private sealed record Quarter(DateTimeOffset Start, DateTimeOffset End, string Label);
+    private sealed record ReportPeriod(DateTimeOffset Start, DateTimeOffset End, string Label);
 
     private sealed record DistrictZipEntry(string Key, string District);
 
-    private sealed record QuarterlyDistrictReportRow(string Country, string District);
+    private sealed record DistrictReportRow(string Country, string District);
 }

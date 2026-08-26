@@ -757,7 +757,7 @@ public sealed class SpecBehaviorTests
     }
 
     [Fact]
-    public async Task Reporting_InterestFormsByDistrictQuarterIgnoresTestingDistrict321()
+    public async Task Reporting_InterestFormsByDistrictQuarterIgnoresTestingDistricts123And321()
     {
         var repository = new InMemoryApplicationRepository();
         await repository.UpsertDistrictContactsAsync(
@@ -775,6 +775,13 @@ public sealed class SpecBehaviorTests
                     District = "District 321",
                     EmailAddresses = ["test@example.com"],
                     ZipCodes = ["32100"]
+                },
+                new ContactsForDistrict
+                {
+                    Country = "usa",
+                    District = "District 123",
+                    EmailAddresses = ["test123@example.com"],
+                    ZipCodes = ["12300"]
                 }
             ],
             CancellationToken.None);
@@ -787,6 +794,16 @@ public sealed class SpecBehaviorTests
         await repository.InsertSubmissionAsync(
             WithCosmosTimestamp(SubmissionNormalizer.Normalize(
                 new InterestFormSubmissionRequest { CountryOfResidence = "United States", Zipcode = "32100" },
+                new DateTimeOffset(2026, 7, 3, 0, 0, 0, TimeSpan.Zero))),
+            CancellationToken.None);
+        await repository.InsertSubmissionAsync(
+            WithCosmosTimestamp(SubmissionNormalizer.Normalize(
+                new InterestFormSubmissionRequest { CountryOfResidence = "United States", Zipcode = "12300" },
+                new DateTimeOffset(2026, 7, 3, 0, 0, 0, TimeSpan.Zero))),
+            CancellationToken.None);
+        await repository.InsertSubmissionAsync(
+            WithCosmosTimestamp(SubmissionNormalizer.Normalize(
+                new InterestFormSubmissionRequest { CountryOfResidence = "United States", Zipcode = "321" },
                 new DateTimeOffset(2026, 7, 3, 0, 0, 0, TimeSpan.Zero))),
             CancellationToken.None);
         var routedTestingDistrictSubmission = WithCosmosTimestamp(SubmissionNormalizer.Normalize(
@@ -804,6 +821,8 @@ public sealed class SpecBehaviorTests
         Assert.Contains("| USA | District 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |", markdown);
         Assert.DoesNotContain("| USA | District 321 |", markdown);
         Assert.DoesNotContain("| USA | 321 |", markdown);
+        Assert.DoesNotContain("| USA | District 123 |", markdown);
+        Assert.DoesNotContain("| USA | 123 |", markdown);
         Assert.DoesNotContain("| USA | Other |", markdown);
     }
 
@@ -882,46 +901,55 @@ public sealed class SpecBehaviorTests
     }
 
     [Fact]
-    public async Task Reporting_SentInterestFormsByDistrictQuarterUsesSentOnUtcRange()
+    public async Task Reporting_SentInterestFormsByDistrictMonthStartsInAugust2026AndUsesSentOnUtcRange()
     {
         var repository = new InMemoryApplicationRepository();
         var sentAtRangeStart = SubmissionNormalizer.Normalize(
             new InterestFormSubmissionRequest { CountryOfResidence = "Mexico" },
-            new DateTimeOffset(2024, 7, 2, 0, 0, 0, TimeSpan.Zero)) with
+            new DateTimeOffset(2026, 8, 2, 0, 0, 0, TimeSpan.Zero)) with
         {
-            SentOnUtc = new DateTimeOffset(2024, 7, 1, 0, 0, 0, TimeSpan.Zero),
-            CosmosTimestamp = new DateTimeOffset(2024, 7, 2, 0, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds()
+            SentOnUtc = new DateTimeOffset(2026, 8, 1, 0, 0, 0, TimeSpan.Zero),
+            CosmosTimestamp = new DateTimeOffset(2026, 8, 2, 0, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds()
         };
         var unsentSubmission = SubmissionNormalizer.Normalize(
             new InterestFormSubmissionRequest { CountryOfResidence = "Canada" },
-            new DateTimeOffset(2026, 7, 3, 0, 0, 0, TimeSpan.Zero)) with
+            new DateTimeOffset(2026, 9, 3, 0, 0, 0, TimeSpan.Zero)) with
         {
             SentOnUtc = null,
-            CosmosTimestamp = new DateTimeOffset(2026, 7, 3, 0, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds()
+            CosmosTimestamp = new DateTimeOffset(2026, 9, 3, 0, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds()
         };
         var sentAtRangeEnd = SubmissionNormalizer.Normalize(
             new InterestFormSubmissionRequest { CountryOfResidence = "USA" },
-            new DateTimeOffset(2026, 7, 4, 0, 0, 0, TimeSpan.Zero)) with
+            new DateTimeOffset(2026, 9, 4, 0, 0, 0, TimeSpan.Zero)) with
         {
             SentOnUtc = new DateTimeOffset(2026, 10, 1, 0, 0, 0, TimeSpan.Zero)
         };
         var receivedInsideButSentOutside = SubmissionNormalizer.Normalize(
             new InterestFormSubmissionRequest { CountryOfResidence = "France" },
-            new DateTimeOffset(2026, 7, 5, 0, 0, 0, TimeSpan.Zero)) with
+            new DateTimeOffset(2026, 9, 5, 0, 0, 0, TimeSpan.Zero)) with
         {
-            SentOnUtc = new DateTimeOffset(2024, 6, 30, 23, 59, 59, TimeSpan.Zero)
+            SentOnUtc = new DateTimeOffset(2026, 7, 31, 23, 59, 59, TimeSpan.Zero)
+        };
+        var ignoredTestingZip321 = SubmissionNormalizer.Normalize(
+            new InterestFormSubmissionRequest { CountryOfResidence = "USA", Zipcode = " 321 " },
+            new DateTimeOffset(2026, 8, 6, 0, 0, 0, TimeSpan.Zero)) with
+        {
+            SentOnUtc = new DateTimeOffset(2026, 8, 6, 1, 0, 0, TimeSpan.Zero),
+            RoutedDistricts = ["District 1"]
         };
 
         await repository.InsertSubmissionAsync(sentAtRangeStart, CancellationToken.None);
         await repository.InsertSubmissionAsync(unsentSubmission, CancellationToken.None);
         await repository.InsertSubmissionAsync(sentAtRangeEnd, CancellationToken.None);
         await repository.InsertSubmissionAsync(receivedInsideButSentOutside, CancellationToken.None);
+        await repository.InsertSubmissionAsync(ignoredTestingZip321, CancellationToken.None);
 
-        var markdown = await new ReportingService(repository).GenerateSentInterestFormsByDistrictQuarterMarkdownAsync(
-            new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
+        var markdown = await new ReportingService(repository).GenerateSentInterestFormsByDistrictMonthMarkdownAsync(
+            new DateTimeOffset(2026, 9, 13, 0, 0, 0, TimeSpan.Zero),
             CancellationToken.None);
 
-        Assert.Contains("| Mexico | Other | 1 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |", markdown);
+        Assert.Contains("| Country | District | 2026-08 | 2026-09 |", markdown);
+        Assert.Contains("| Mexico | Other | 1 | 0 |", markdown);
         Assert.DoesNotContain("| Canada |", markdown);
         Assert.DoesNotContain("| USA |", markdown);
         Assert.DoesNotContain("| Other countries |", markdown);

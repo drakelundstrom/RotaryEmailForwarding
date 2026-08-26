@@ -66,7 +66,7 @@ Azure deployments default to Gmail SMTP: `smtp.gmail.com`, port `587`, `StartTls
 - `GET /api/generate-submissions-by-month?start=...&end=...`: admin monthly reporting, requires `x-admin-api-key`.
 - `GET /api/submissions/district/{districtName}`: admin district submission report, requires `x-admin-api-key`.
 - `GET /api/interest-forms-per-district-per-quarter`: admin markdown report for the current quarter plus the prior 2 years by `ReceivedOnUtc`, falling back to Cosmos `_ts` for legacy records, grouped by country and district, requires `x-admin-api-key`.
-- `GET /api/interest-forms-sent-per-district-per-quarter`: admin markdown report for the current quarter plus the prior 2 years by successful delivery time (`SentOnUtc`), grouped by country and district; unsent and legacy records without `SentOnUtc` are excluded, requires `x-admin-api-key`.
+- `GET /api/interest-forms-sent-per-district-per-month`: admin markdown report with monthly columns from August 2026 through the current month by successful delivery time (`SentOnUtc`), grouped by country and district; unsent records, records sent before August 2026, testing districts `123` and `321`, and USA submissions with ZIP code `321` are excluded, requires `x-admin-api-key`.
 - `GET /api/health`: anonymous health probe.
 
 ## Delivery and Retry
