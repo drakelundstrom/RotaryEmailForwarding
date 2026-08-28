@@ -148,18 +148,14 @@ public sealed class EmailDeliveryOrchestrator(
             return;
         }
 
-        var logArguments = new object?[]
-        {
-            submission.CorrelationId,
+        logger?.LogError(
+            "[EmailDeliveryFinalFailure] Email delivery run ended without success. CosmosSubmissionId: {CosmosSubmissionId}, CorrelationId: {CorrelationId}, MessageType: {MessageType}, AttemptStatus: {AttemptStatus}, ProviderCode: {ProviderCode}, ProviderResponse: {ProviderResponse}",
             submission.Id,
+            submission.CorrelationId,
             message.MessageType,
             result.Status,
             result.ProviderCode,
-            result.ProviderResponse
-        };
-        const string logMessage = "Email delivery failed. CorrelationId: {CorrelationId}, SubmissionId: {SubmissionId}, MessageType: {MessageType}, AttemptStatus: {AttemptStatus}, ProviderCode: {ProviderCode}, ProviderResponse: {ProviderResponse}";
-
-        logger?.LogError(logMessage, logArguments);
+            result.ProviderResponse);
     }
 
     private OutboundEmailAttempt ToAttempt(OutboundEmailMessage message, EmailSendResult result)

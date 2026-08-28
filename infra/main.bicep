@@ -166,7 +166,7 @@ resource applicationExceptionAlert 'Microsoft.Insights/scheduledQueryRules@2023-
   tags: tags
   properties: {
     displayName: '${applicationInsightsName} application errors'
-    description: 'Email the website operators when Application Insights records exceptions, error-level traces, or failed dependencies.'
+    description: 'Email the website operators when Application Insights records exceptions, non-delivery error traces, or failed dependencies.'
     severity: 1
     enabled: true
     scopes: [
@@ -177,10 +177,59 @@ resource applicationExceptionAlert 'Microsoft.Insights/scheduledQueryRules@2023-
     criteria: {
       allOf: [
         {
-          query: 'union exceptions, (traces | where severityLevel >= 3), (dependencies | where success == false)'
+          query: 'union exceptions, (traces | where severityLevel >= 3 | where message !startswith "[EmailDeliveryFinalFailure]"), (dependencies | where success == false)'
           operator: 'GreaterThan'
           threshold: 0
           timeAggregation: 'Count'
+          failingPeriods: {
+            numberOfEvaluationPeriods: 1
+            minFailingPeriodsToAlert: 1
+          }
+        }
+      ]
+    }
+    autoMitigate: true
+    checkWorkspaceAlertsStorageConfigured: false
+    skipQueryValidation: false
+    actions: {
+      actionGroups: [
+        applicationAlertActionGroup.id
+      ]
+    }
+  }
+}
+
+resource finalEmailDeliveryFailureAlert 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = {
+  name: '${applicationInsightsName}-final-email-delivery-failures-alert'
+  location: location
+  kind: 'LogAlert'
+  tags: tags
+  properties: {
+    displayName: '${applicationInsightsName} final email delivery failures'
+    description: 'Notify the website operators when the final SMTP outcome in an email delivery run is unsuccessful. The alert dimension contains the Cosmos submission ID needed for resend.'
+    severity: 1
+    enabled: true
+    scopes: [
+      applicationInsights.id
+    ]
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT5M'
+    criteria: {
+      allOf: [
+        {
+          query: 'traces | where severityLevel >= 3 | where message startswith "[EmailDeliveryFinalFailure]" | extend CosmosSubmissionId = tostring(customDimensions.CosmosSubmissionId)'
+          operator: 'GreaterThan'
+          threshold: 0
+          timeAggregation: 'Count'
+          dimensions: [
+            {
+              name: 'CosmosSubmissionId'
+              operator: 'Include'
+              values: [
+                '*'
+              ]
+            }
+          ]
           failingPeriods: {
             numberOfEvaluationPeriods: 1
             minFailingPeriodsToAlert: 1

@@ -550,6 +550,8 @@ public sealed class SpecBehaviorTests
         Assert.Equal(OutboundEmailAttemptStatus.TerminalFailed, delivered.EmailDeliveryAttempts[1].Status);
         Assert.Equal("FormatException", delivered.EmailDeliveryAttempts[1].ProviderCode);
         var errorLog = Assert.Single(logger.Entries, entry => entry.Level == LogLevel.Error);
+        Assert.Contains("[EmailDeliveryFinalFailure]", errorLog.Message);
+        Assert.Contains("CosmosSubmissionId", errorLog.Message);
         Assert.Contains("delivery-correlation", errorLog.Message);
         Assert.Contains(submission.Id, errorLog.Message);
         Assert.Contains("FormatException", errorLog.Message);
