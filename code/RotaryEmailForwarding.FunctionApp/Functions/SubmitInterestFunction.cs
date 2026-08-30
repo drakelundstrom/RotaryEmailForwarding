@@ -163,8 +163,8 @@ public sealed class SubmitInterestFunction(
 
         if (result.Submission.Errors.Count > 0)
         {
-            logger.LogError(
-                "Interest form submission completed with errors. CorrelationId: {CorrelationId}, SubmissionId: {SubmissionId}, DeliveryStatus: {DeliveryStatus}, Errors: {Errors}",
+            logger.LogWarning(
+                "Interest form submission completed with warnings. CorrelationId: {CorrelationId}, SubmissionId: {SubmissionId}, DeliveryStatus: {DeliveryStatus}, Warnings: {Warnings}",
                 correlationId,
                 result.Submission.Id,
                 result.Submission.EmailDeliveryStatus,
