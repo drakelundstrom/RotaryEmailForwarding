@@ -549,12 +549,52 @@ public sealed class SpecBehaviorTests
         Assert.Equal(OutboundEmailAttemptStatus.Succeeded, delivered.EmailDeliveryAttempts[0].Status);
         Assert.Equal(OutboundEmailAttemptStatus.TerminalFailed, delivered.EmailDeliveryAttempts[1].Status);
         Assert.Equal("FormatException", delivered.EmailDeliveryAttempts[1].ProviderCode);
+        var warningLog = Assert.Single(
+            logger.Entries,
+            entry => entry.Level == LogLevel.Warning && entry.Message.Contains("[EmailDeliveryAttemptFailure]"));
+        Assert.Contains("FormatException", warningLog.Message);
         var errorLog = Assert.Single(logger.Entries, entry => entry.Level == LogLevel.Error);
         Assert.Contains("[EmailDeliveryFinalFailure]", errorLog.Message);
         Assert.Contains("CosmosSubmissionId", errorLog.Message);
         Assert.Contains("delivery-correlation", errorLog.Message);
         Assert.Contains(submission.Id, errorLog.Message);
         Assert.Contains("FormatException", errorLog.Message);
+    }
+
+    [Fact]
+    public async Task Delivery_LogsOneFinalFailureAfterMultipleMessageFailures()
+    {
+        var sender = new FakeEmailSender
+        {
+            NextResult = EmailSendResult.Failed(
+                OutboundEmailAttemptStatus.RetryableFailed,
+                "ProviderUnavailable",
+                "Provider unavailable.")
+        };
+        var logger = new RecordingLogger<EmailDeliveryOrchestrator>();
+        var orchestrator = new EmailDeliveryOrchestrator(sender, new FakeClock(Now), logger);
+        var submission = SubmissionNormalizer.Normalize(new InterestFormSubmissionRequest(), Now);
+
+        await orchestrator.DeliverAsync(
+            submission,
+            [
+                new OutboundEmailMessage("one", OutboundEmailMessageType.OperatorFallback, ["operator@example.com"], "subject", "body"),
+                new OutboundEmailMessage("two", OutboundEmailMessageType.SubmitterConfirmation, ["student@example.com"], "subject", "body")
+            ],
+            CancellationToken.None);
+
+        Assert.Equal(
+            2,
+            logger.Entries.Count(entry =>
+                entry.Level == LogLevel.Warning
+                && entry.Message.Contains("[EmailDeliveryAttemptFailure]")));
+        var finalFailure = Assert.Single(
+            logger.Entries,
+            entry => entry.Level == LogLevel.Error
+                && entry.Message.Contains("[EmailDeliveryFinalFailure]"));
+        Assert.Contains("UnresolvedMessageCount: 2", finalFailure.Message);
+        Assert.Contains("OperatorFallback:RetryableFailed:ProviderUnavailable", finalFailure.Message);
+        Assert.Contains("SubmitterConfirmation:RetryableFailed:ProviderUnavailable", finalFailure.Message);
     }
 
     [Fact]
